@@ -11,4 +11,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install pandas numpy PyYAML pytest
-      - run: pytest -q tests/test_core.py tests/test_requests.py
+      - run: pytest -q tests/test_core.py tests/test_requests.py tests/test_emef_gate.py
