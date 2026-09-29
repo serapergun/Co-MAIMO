@@ -1,0 +1,34 @@
+project:
+  name: Co-MAIMO
+  seed: 42
+data:
+  emef_displacements: null
+  emef_dictionary: null
+  district_boundaries: null
+  time_bin_minutes: 15
+  odm_penetration: null
+  simulation_scale: null
+sumo:
+  binary: sumo
+  network_file: null
+  step_length_s: 1.0
+  strategic_interval_s: null
+  coalition_interval_s: null
+fleet:
+  size: null
+  capacity: 4
+  battery_capacity_kwh: null
+  reserve_soc: null
+coalition:
+  enabled: false
+  evaluation_horizon_s: null
+  max_size: null
+  merge_threshold: null
+  split_threshold: null
+shapley:
+  enabled: false
+  exact_limit: null
+  mc_permutations: null
+reward:
+  lambda_phi: 0.0
+  lambda_coord: null
