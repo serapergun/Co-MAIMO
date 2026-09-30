@@ -7,7 +7,7 @@ on:
       - ".github/workflows/sumo-mmpevem-smoke.yml"
       - "scripts/mmpevem_smoke.py"
       - "scripts/analyze_mmpevem.py"
-      - "src/evaluation/energy_metrics.py"
+      - "src/evaluation/energy_metrics.py"\n      - "src/evaluation/parse_mmpevem_emissions.py"
 
 jobs:
   smoke:
