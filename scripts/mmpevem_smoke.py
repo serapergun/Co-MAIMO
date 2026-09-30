@@ -12,7 +12,7 @@ trip=root/"tripinfo.xml"
 nodes=root/"nodes.nod.xml"
 edges=root/"edges.edg.xml"
 nodes.write_text("""<nodes>
-<n id="n0" x="0" y="0"/><n id="n1" x="1000" y="0"/><n id="n2" x="2000" y="0"/>
+<node id="n0" x="0" y="0"/><node id="n1" x="1000" y="0"/><node id="n2" x="2000" y="0"/>
 </nodes>""")
 edges.write_text("""<edges>
 <edge id="e0" from="n0" to="n1" numLanes="1" speed="13.89"/>
