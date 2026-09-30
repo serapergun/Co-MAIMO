@@ -25,7 +25,7 @@ jobs:
       - name: Run physical MMPEVEM smoke test
         run: python scripts/mmpevem_smoke.py
       - name: Analyze physical energy
-        run: python scripts/analyze_mmpevem.py --tripinfo artifacts/mmpevem_smoke/tripinfo.xml --out artifacts/mmpevem_smoke/energy_metrics.json
+        run: PYTHONPATH=. python scripts/analyze_mmpevem.py --tripinfo artifacts/mmpevem_smoke/tripinfo.xml --out artifacts/mmpevem_smoke/energy_metrics.json
       - name: Show result
         run: cat artifacts/mmpevem_smoke/energy_metrics.json
       - uses: actions/upload-artifact@v4
