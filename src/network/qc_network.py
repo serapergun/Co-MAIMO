@@ -24,41 +24,41 @@ def inspect_network(net_file):
                 reverse[oid].add(e.getID())
     isolated = [eid for eid in edge_ids if not adjacency[eid] and not reverse[eid]]
 
-    # Tarjan SCC over passenger-accessible directed edges.  This avoids adding
-    # another graph dependency and makes the manuscript's >=0.95 gate executable.
-    index = 0
-    stack = []
-    on_stack = set()
-    indices = {}
-    lowlink = {}
+    # Iterative Kosaraju SCC avoids Python recursion limits on city-scale nets.
+    visited = set()
+    finish = []
+    for root in edge_ids:
+        if root in visited:
+            continue
+        visited.add(root)
+        stack = [(root, iter(adjacency[root]))]
+        while stack:
+            v, it = stack[-1]
+            try:
+                w = next(it)
+                if w not in visited:
+                    visited.add(w)
+                    stack.append((w, iter(adjacency[w])))
+            except StopIteration:
+                finish.append(v)
+                stack.pop()
+
     components = []
-
-    def strongconnect(v):
-        nonlocal index
-        indices[v] = index
-        lowlink[v] = index
-        index += 1
-        stack.append(v)
-        on_stack.add(v)
-        for w in adjacency[v]:
-            if w not in indices:
-                strongconnect(w)
-                lowlink[v] = min(lowlink[v], lowlink[w])
-            elif w in on_stack:
-                lowlink[v] = min(lowlink[v], indices[w])
-        if lowlink[v] == indices[v]:
-            comp = []
-            while True:
-                w = stack.pop()
-                on_stack.remove(w)
-                comp.append(w)
-                if w == v:
-                    break
-            components.append(comp)
-
-    for eid in edge_ids:
-        if eid not in indices:
-            strongconnect(eid)
+    assigned = set()
+    for root in reversed(finish):
+        if root in assigned:
+            continue
+        comp = []
+        stack = [root]
+        assigned.add(root)
+        while stack:
+            v = stack.pop()
+            comp.append(v)
+            for w in reverse[v]:
+                if w not in assigned:
+                    assigned.add(w)
+                    stack.append(w)
+        components.append(comp)
 
     largest_scc_edges = max((len(x) for x in components), default=0)
     largest_scc_share = largest_scc_edges / len(edges)
