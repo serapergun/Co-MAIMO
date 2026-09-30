@@ -32,7 +32,7 @@ cfg.write_text(f"""<configuration><input>
 bin_dir=Path(sumo.SUMO_HOME)/"bin"
 netconvert=bin_dir/"netconvert"
 sumo_bin=bin_dir/"sumo"
-subprocess.run([str(netconvert),"--node-files",str(nodes),"--edge-files",str(edges),"--output-file",str(net)],check=True)
+subprocess.run([str(netconvert),"--node-files",nodes.name,"--edge-files",edges.name,"--output-file",net.name],check=True,cwd=root)
 subprocess.run([str(sumo_bin),"-c",cfg.name,"--tripinfo-output",trip.name,"--tripinfo-output.write-unfinished","true","--no-step-log","true"],check=True,cwd=root)
 if not trip.exists():
     raise SystemExit("tripinfo was not produced")
