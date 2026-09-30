@@ -7,7 +7,7 @@ root.mkdir(parents=True,exist_ok=True)
 net=root/"network.net.xml"
 rou=root/"routes.rou.xml"
 cfg=root/"run.sumocfg"
-trip=root/"tripinfo.xml"
+trip=root/"tripinfo.xml"\nemissions=root/"emissions.xml"
 
 nodes=root/"nodes.nod.xml"
 edges=root/"edges.edg.xml"
@@ -33,7 +33,7 @@ bin_dir=Path(sumo.SUMO_HOME)/"bin"
 netconvert=bin_dir/"netconvert"
 sumo_bin=bin_dir/"sumo"
 subprocess.run([str(netconvert),"--node-files",nodes.name,"--edge-files",edges.name,"--output-file",net.name],check=True,cwd=root)
-subprocess.run([str(sumo_bin),"-c",cfg.name,"--tripinfo-output",trip.name,"--tripinfo-output.write-unfinished","true","--no-step-log","true"],check=True,cwd=root)
+subprocess.run([str(sumo_bin),"-c",cfg.name,"--tripinfo-output",trip.name,"--tripinfo-output.write-unfinished","true","--emission-output",emissions.name,"--emission-output.step-scaled","true","--no-step-log","true"],check=True,cwd=root)
 if not trip.exists():
     raise SystemExit("tripinfo was not produced")
 print(trip)
