@@ -44,9 +44,10 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
                 raise RuntimeError("Simulation exceeded horizon.")
 
             teleports.update(traci.simulation.getStartingTeleportIDList())
-            reservations = traci.person.getTaxiReservations(0)
+            new_reservations = traci.person.getTaxiReservations(1)
+            active_reservations = traci.person.getTaxiReservations(0)
             fleet = traci.vehicle.getTaxiFleet(-1)
-            assignments = dispatch_fn(traci, reservations, fleet, now) or []
+            assignments = dispatch_fn(traci, new_reservations, fleet, now) or []
             for vehicle_id, reservation_ids in assignments:
                 for reservation_id in reservation_ids:
                     if reservation_id in assigned_reservations:
