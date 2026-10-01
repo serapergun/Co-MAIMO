@@ -1,14 +1,16 @@
 """B1: deterministic sequential nearest-feasible taxi dispatch."""
 
 def dispatch(traci, reservations, fleet, now):
-    # getTaxiReservations(0) returns all active reservations. Reservation state 1
-    # denotes a newly received reservation in SUMO's taxi API.
-    pending = [r for r in reservations if r.state == 1]
+    """Assign each newly surfaced reservation to the nearest feasible idle taxi.
+
+    The runner supplies getTaxiReservations(onlyNew=1), so this function does
+    not depend on undocumented numeric reservation-state constants.
+    """
     idle = list(traci.vehicle.getTaxiFleet(0))
     assignments = []
     used = set()
 
-    for reservation in sorted(pending, key=lambda r: (r.reservationTime, r.id)):
+    for reservation in sorted(reservations, key=lambda r: (r.reservationTime, r.id)):
         best = None
         for vehicle_id in idle:
             if vehicle_id in used:
