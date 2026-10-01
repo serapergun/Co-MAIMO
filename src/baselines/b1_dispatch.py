@@ -1,16 +1,37 @@
-def dispatch(traci,reservations,fleet,now):
- idle=list(traci.vehicle.getTaxiFleet(0)); pending=[r for r in reservations if r.state==1]
- ans=[]; used=set()
- for r in sorted(pending,key=lambda x:(x.reservationTime,x.id)):
-  best=None
-  for v in idle:
-   if v in used: continue
-   edge=traci.vehicle.getRoadID(v)
-   if not edge or edge.startswith(":"): continue
-   try: route=traci.simulation.findRoute(edge,r.fromEdge,vType=traci.vehicle.getTypeID(v))
-   except Exception: continue
-   if not route.edges: continue
-   cand=(route.travelTime,v)
-   if best is None or cand<best: best=cand
-  if best: ans.append((best[1],[r.id])); used.add(best[1])
- return ans
+"""B1: deterministic sequential nearest-feasible taxi dispatch."""
+
+def dispatch(traci, reservations, fleet, now):
+    # getTaxiReservations(0) returns all active reservations. Reservation state 1
+    # denotes a newly received reservation in SUMO's taxi API.
+    pending = [r for r in reservations if r.state == 1]
+    idle = list(traci.vehicle.getTaxiFleet(0))
+    assignments = []
+    used = set()
+
+    for reservation in sorted(pending, key=lambda r: (r.reservationTime, r.id)):
+        best = None
+        for vehicle_id in idle:
+            if vehicle_id in used:
+                continue
+            edge = traci.vehicle.getRoadID(vehicle_id)
+            if not edge or edge.startswith(":"):
+                continue
+            try:
+                route = traci.simulation.findRoute(
+                    edge,
+                    reservation.fromEdge,
+                    vType=traci.vehicle.getTypeID(vehicle_id),
+                )
+            except Exception:
+                continue
+            if not route.edges:
+                continue
+            candidate = (route.travelTime, vehicle_id)
+            if best is None or candidate < best:
+                best = candidate
+
+        if best is not None:
+            assignments.append((best[1], [reservation.id]))
+            used.add(best[1])
+
+    return assignments
