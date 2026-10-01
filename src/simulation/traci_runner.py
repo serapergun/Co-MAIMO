@@ -56,7 +56,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
 
             rows.append({
                 "time": now,
-                "active_reservations": len(reservations),
+                "active_reservations": len(active_reservations),
                 "idle_taxis": len(traci.vehicle.getTaxiFleet(0)),
                 "pickup_taxis": len(traci.vehicle.getTaxiFleet(1)),
                 "occupied_taxis": len(traci.vehicle.getTaxiFleet(2)),
