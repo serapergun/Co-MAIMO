@@ -23,7 +23,16 @@ for o in edges[:2000]:
     for d in edges[-1:max(-2001,-len(edges)):-20]:
         if o.getID()==d.getID(): continue
         route,_=net.getOptimalPath(o,d,vClass="passenger")
-        if route and 3000 <= sum(e.getLength() for e in route) <= 6000:
+        if not route:
+            continue
+        route_len=sum(e.getLength() for e in route)
+        # Avoid fragile seeds: require a moderate connected route and enough
+        # usable lane length at both endpoints for stable taxi insertion/pickup.
+        o_lanes=[l for l in o.getLanes() if l.allows("passenger")]
+        d_lanes=[l for l in d.getLanes() if l.allows("passenger")]
+        if (3000 <= route_len <= 6000
+                and max((l.getLength() for l in o_lanes), default=0) >= 80
+                and max((l.getLength() for l in d_lanes), default=0) >= 80):
             pairs.append((o.getID(),d.getID()))
             used_origins.add(o.getID())
             break
