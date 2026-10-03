@@ -39,13 +39,15 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     occupied_taxi_ids = set()
     occupied_distance_m = {}
     previous_distance_m = {}
+    horizon_exceeded = False
     traci.start(cmd)
     try:
         while traci.simulation.getMinExpectedNumber() > 0:
             traci.simulationStep()
             now = float(traci.simulation.getTime())
             if max_time_s is not None and now > max_time_s:
-                raise RuntimeError("Simulation exceeded horizon.")
+                horizon_exceeded = True
+                break
 
             teleports.update(traci.simulation.getStartingTeleportIDList())
             new_reservations = traci.person.getTaxiReservations(1)
@@ -109,6 +111,8 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     }
     (out / "run_command.json").write_text(json.dumps(cmd, indent=2), encoding="utf-8")
     (out / "request_qc.json").write_text(json.dumps(qc, indent=2), encoding="utf-8")
+    if horizon_exceeded:
+        raise RuntimeError(f"Simulation exceeded horizon; diagnostics written to {out / 'request_qc.json'}")
     return {
         "tripinfo": str(tripinfo),
         "summary": str(summary),
