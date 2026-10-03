@@ -100,7 +100,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
         "teleported_vehicle_ids": sorted(teleports),
         "pickup_taxi_ids": sorted(pickup_taxi_ids),
         "occupied_taxi_ids": sorted(occupied_taxi_ids),
-        "occupied_distance_m_by_taxi": {
+        "horizon_exceeded": horizon_exceeded,\n        "final_simulation_time_s": rows[-1]["time"] if rows else 0.0,\n        "occupied_distance_m_by_taxi": {
             vehicle_id: round(distance_m, 6)
             for vehicle_id, distance_m in sorted(occupied_distance_m.items())
         },
