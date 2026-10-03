@@ -37,8 +37,11 @@ jobs:
           from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
           r=Path("artifacts/barcelona_b2_traci")
           q=json.loads((r/"request_qc.json").read_text())
-          expected={"request0","request1"}
-          if set(q["assigned_reservations"]) != expected: raise SystemExit(f"expected two assigned reservations: {q}")
+          assigned=q["assigned_reservations"]
+          # SUMO taxi reservation IDs are reservation identifiers (e.g. "0","1"),
+          # not necessarily the person IDs declared in the route file.
+          if len(assigned) != 2 or len(set(assigned)) != 2:
+              raise SystemExit(f"expected exactly two unique assigned reservations: {q}")
           if q["duplicate_assignments"]: raise SystemExit(f"duplicate assignments: {q['duplicate_assignments']}")
           if q["final_active_reservations"] or q["remaining_persons"]: raise SystemExit(f"unresolved requests/persons: {q}")
           if q["teleported_vehicle_ids"]: raise SystemExit(f"teleport detected: {q['teleported_vehicle_ids']}")
