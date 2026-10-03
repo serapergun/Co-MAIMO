@@ -38,7 +38,10 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     pickup_taxi_ids = set()
     occupied_taxi_ids = set()
     occupied_distance_m = {}
+    empty_distance_m = {}
     previous_distance_m = {}
+    request_first_seen_s = {}
+    request_assigned_s = {}
     horizon_exceeded = False
     traci.start(cmd)
     try:
@@ -55,6 +58,8 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
             # Retry active reservations that have never been assigned. A request
             # may surface when no feasible idle taxi route exists, so onlyNew=1
             # alone can strand it forever.
+            for reservation in active_reservations:
+                request_first_seen_s.setdefault(reservation.id, now)
             dispatchable_reservations = [
                 r for r in active_reservations
                 if r.id not in assigned_reservations
@@ -70,8 +75,11 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
                 except Exception:
                     continue
                 previous = previous_distance_m.get(vehicle_id, distance_m)
+                delta = max(0.0, distance_m - previous)
                 if vehicle_id in occupied_now:
-                    occupied_distance_m[vehicle_id] = occupied_distance_m.get(vehicle_id, 0.0) + max(0.0, distance_m - previous)
+                    occupied_distance_m[vehicle_id] = occupied_distance_m.get(vehicle_id, 0.0) + delta
+                else:
+                    empty_distance_m[vehicle_id] = empty_distance_m.get(vehicle_id, 0.0) + delta
                 previous_distance_m[vehicle_id] = distance_m
             assignments = dispatch_fn(traci, dispatchable_reservations, fleet, now) or []
             for vehicle_id, reservation_ids in assignments:
@@ -79,6 +87,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
                     if reservation_id in assigned_reservations:
                         duplicate_assignments.add(reservation_id)
                     assigned_reservations.add(reservation_id)
+                    request_assigned_s.setdefault(reservation_id, now)
                 traci.vehicle.dispatchTaxi(vehicle_id, reservation_ids)
 
             rows.append({
@@ -114,6 +123,17 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
         "occupied_distance_m_by_taxi": {
             vehicle_id: round(distance_m, 6)
             for vehicle_id, distance_m in sorted(occupied_distance_m.items())
+        },
+        "empty_distance_m_by_taxi": {
+            vehicle_id: round(distance_m, 6)
+            for vehicle_id, distance_m in sorted(empty_distance_m.items())
+        },
+        "request_first_seen_s": dict(sorted(request_first_seen_s.items())),
+        "request_assigned_s": dict(sorted(request_assigned_s.items())),
+        "assignment_wait_s": {
+            reservation_id: round(request_assigned_s[reservation_id] - first_seen, 6)
+            for reservation_id, first_seen in sorted(request_first_seen_s.items())
+            if reservation_id in request_assigned_s
         },
     }
     (out / "run_command.json").write_text(json.dumps(cmd, indent=2), encoding="utf-8")
