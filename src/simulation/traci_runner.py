@@ -35,6 +35,10 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     assigned_reservations = set()
     duplicate_assignments = set()
     teleports = set()
+    pickup_taxi_ids = set()
+    occupied_taxi_ids = set()
+    occupied_distance_m = {}
+    previous_distance_m = {}
     traci.start(cmd)
     try:
         while traci.simulation.getMinExpectedNumber() > 0:
@@ -47,6 +51,19 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
             new_reservations = traci.person.getTaxiReservations(1)
             active_reservations = traci.person.getTaxiReservations(0)
             fleet = traci.vehicle.getTaxiFleet(-1)
+            pickup_now = set(traci.vehicle.getTaxiFleet(1))
+            occupied_now = set(traci.vehicle.getTaxiFleet(2))
+            pickup_taxi_ids.update(pickup_now)
+            occupied_taxi_ids.update(occupied_now)
+            for vehicle_id in fleet:
+                try:
+                    distance_m = float(traci.vehicle.getDistance(vehicle_id))
+                except Exception:
+                    continue
+                previous = previous_distance_m.get(vehicle_id, distance_m)
+                if vehicle_id in occupied_now:
+                    occupied_distance_m[vehicle_id] = occupied_distance_m.get(vehicle_id, 0.0) + max(0.0, distance_m - previous)
+                previous_distance_m[vehicle_id] = distance_m
             assignments = dispatch_fn(traci, new_reservations, fleet, now) or []
             for vehicle_id, reservation_ids in assignments:
                 for reservation_id in reservation_ids:
@@ -81,6 +98,12 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
         "final_active_reservations": [r.id for r in final_reservations],
         "remaining_persons": remaining_persons,
         "teleported_vehicle_ids": sorted(teleports),
+        "pickup_taxi_ids": sorted(pickup_taxi_ids),
+        "occupied_taxi_ids": sorted(occupied_taxi_ids),
+        "occupied_distance_m_by_taxi": {
+            vehicle_id: round(distance_m, 6)
+            for vehicle_id, distance_m in sorted(occupied_distance_m.items())
+        },
     }
     (out / "run_command.json").write_text(json.dumps(cmd, indent=2), encoding="utf-8")
     (out / "request_qc.json").write_text(json.dumps(qc, indent=2), encoding="utf-8")
