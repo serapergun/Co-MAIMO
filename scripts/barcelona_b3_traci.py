@@ -23,7 +23,7 @@ for o in edges[:2000]:
     for d in edges[-1:max(-2001,-len(edges)):-20]:
         if o.getID()==d.getID(): continue
         route,_=net.getOptimalPath(o,d,vClass="passenger")
-        if route and sum(e.getLength() for e in route)>=3000:
+        if route and 3000 <= sum(e.getLength() for e in route) <= 6000:
             pairs.append((o.getID(),d.getID()))
             used_origins.add(o.getID())
             break
@@ -34,14 +34,14 @@ routes=['<routes>','<vType id="evTaxi" vClass="passenger" emissionClass="MMPEVEM
 for i,(o,_) in enumerate(pairs):
     routes.append(f'<vehicle id="taxi{i}" type="evTaxi" depart="0" line="taxi"><route edges="{o}"/></vehicle>')
 # Two waves. Each wave has one request originating at each taxi seed edge.
-for wave,depart in enumerate((10,900)):
+for wave,depart in enumerate((10,1800)):
     for i,(o,d) in enumerate(pairs):
         rid=wave*N_TAXIS+i
         routes.append(f'<person id="request{rid}" depart="{depart}"><ride from="{o}" to="{d}" lines="taxi"/></person>')
 routes.append('</routes>')
 rou=ROOT/"b3.rou.xml"; cfg=ROOT/"b3.sumocfg"
 rou.write_text("\n".join(routes),encoding="utf-8")
-cfg.write_text(f'<configuration><input><net-file value="{NET.resolve()}"/><route-files value="{rou.resolve()}"/></input><time><begin value="0"/><end value="7200"/><step-length value="1"/></time></configuration>',encoding="utf-8")
-outputs=run(cfg,ROOT,dispatch,max_time_s=7200)
-(ROOT/"fixture_manifest.json").write_text(json.dumps({"role":"B3 scale integration fixture; four taxis/eight staggered deterministic requests; not EMEF demand","taxi_count":N_TAXIS,"request_count":N_REQUESTS,"pairs":pairs,"departures":[10,900],"outputs":outputs},indent=2),encoding="utf-8")
+cfg.write_text(f'<configuration><input><net-file value="{NET.resolve()}"/><route-files value="{rou.resolve()}"/></input><time><begin value="0"/><end value="10800"/><step-length value="1"/></time></configuration>',encoding="utf-8")
+outputs=run(cfg,ROOT,dispatch,max_time_s=10800)
+(ROOT/"fixture_manifest.json").write_text(json.dumps({"role":"B3 scale integration fixture; four taxis/eight staggered deterministic requests; not EMEF demand","taxi_count":N_TAXIS,"request_count":N_REQUESTS,"pairs":pairs,"departures":[10,1800],"outputs":outputs},indent=2),encoding="utf-8")
 print(json.dumps(outputs,indent=2))
