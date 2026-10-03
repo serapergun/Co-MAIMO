@@ -52,6 +52,13 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
             teleports.update(traci.simulation.getStartingTeleportIDList())
             new_reservations = traci.person.getTaxiReservations(1)
             active_reservations = traci.person.getTaxiReservations(0)
+            # Retry active reservations that have never been assigned. A request
+            # may surface when no feasible idle taxi route exists, so onlyNew=1
+            # alone can strand it forever.
+            dispatchable_reservations = [
+                r for r in active_reservations
+                if r.id not in assigned_reservations
+            ]
             fleet = traci.vehicle.getTaxiFleet(-1)
             pickup_now = set(traci.vehicle.getTaxiFleet(1))
             occupied_now = set(traci.vehicle.getTaxiFleet(2))
@@ -66,7 +73,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
                 if vehicle_id in occupied_now:
                     occupied_distance_m[vehicle_id] = occupied_distance_m.get(vehicle_id, 0.0) + max(0.0, distance_m - previous)
                 previous_distance_m[vehicle_id] = distance_m
-            assignments = dispatch_fn(traci, new_reservations, fleet, now) or []
+            assignments = dispatch_fn(traci, dispatchable_reservations, fleet, now) or []
             for vehicle_id, reservation_ids in assignments:
                 for reservation_id in reservation_ids:
                     if reservation_id in assigned_reservations:
