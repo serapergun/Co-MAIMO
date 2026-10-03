@@ -1,0 +1,65 @@
+name: barcelona-b2-traci
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-b2-traci.yml"
+      - "scripts/barcelona_b2_traci.py"
+      - "scripts/build_barcelona_network.py"
+      - "src/baselines/b1_dispatch.py"
+      - "src/simulation/traci_runner.py"
+      - "src/evaluation/parse_mmpevem_emissions.py"
+
+jobs:
+  b2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          pip install eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Build fixed-snapshot Barcelona preflight network
+        run: python scripts/build_barcelona_network.py
+      - name: Run B2 two-taxi multi-request lifecycle
+        run: PYTHONPATH=. python scripts/barcelona_b2_traci.py
+      - name: Validate B2 lifecycle and physical energy
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
+          r=Path("artifacts/barcelona_b2_traci")
+          q=json.loads((r/"request_qc.json").read_text())
+          expected={"request0","request1"}
+          if set(q["assigned_reservations"]) != expected: raise SystemExit(f"expected two assigned reservations: {q}")
+          if q["duplicate_assignments"]: raise SystemExit(f"duplicate assignments: {q['duplicate_assignments']}")
+          if q["final_active_reservations"] or q["remaining_persons"]: raise SystemExit(f"unresolved requests/persons: {q}")
+          if q["teleported_vehicle_ids"]: raise SystemExit(f"teleport detected: {q['teleported_vehicle_ids']}")
+          served=set(q["occupied_taxi_ids"])
+          if served != {"taxi0","taxi1"}: raise SystemExit(f"both taxis must enter occupied state: {q}")
+          if not {"taxi0","taxi1"}.issubset(set(q["pickup_taxi_ids"])): raise SystemExit(f"both taxis must enter pickup state: {q}")
+          for taxi in ("taxi0","taxi1"):
+              if float(q["occupied_distance_m_by_taxi"].get(taxi,0)) <= 0: raise SystemExit(f"{taxi} has non-positive occupied distance: {q}")
+          trips=ET.parse(r/"tripinfo.xml").getroot().findall("tripinfo")
+          taxi=[t for t in trips if t.get("id") in {"taxi0","taxi1"}]
+          if len(taxi)!=2: raise SystemExit(f"expected two taxi tripinfos, got {len(taxi)}")
+          dist=sum(float(t.get("routeLength","0")) for t in taxi)/1000
+          if dist<=0: raise SystemExit("non-positive fleet vehicle-km")
+          m=mmpevem_emission_energy(r/"emissions.xml")
+          if m["net_energy_kWh"]<=0: raise SystemExit("non-positive net MMPEVEM energy")
+          m["fleet_vehicle_km"]=dist; m["kWh_per_vehicle_km"]=m["net_energy_kWh"]/dist
+          (r/"validated_metrics.json").write_text(json.dumps(m,indent=2))
+          print(json.dumps({"request_qc":q,"energy":m},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b2-traci
+          path: artifacts/barcelona_b2_traci/
