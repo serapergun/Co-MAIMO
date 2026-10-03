@@ -45,6 +45,13 @@ jobs:
               raise SystemExit(f"unresolved request/person: {q}")
           if q["teleported_vehicle_ids"]:
               raise SystemExit(f"teleport detected: {q['teleported_vehicle_ids']}")
+          if "taxi0" not in q["pickup_taxi_ids"]:
+              raise SystemExit(f"taxi0 never entered pickup state: {q}")
+          if "taxi0" not in q["occupied_taxi_ids"]:
+              raise SystemExit(f"taxi0 never entered occupied state: {q}")
+          occupied_m=float(q["occupied_distance_m_by_taxi"].get("taxi0",0))
+          if occupied_m <= 0:
+              raise SystemExit(f"taxi0 has non-positive occupied distance: {q}")
           trips=ET.parse(r/"tripinfo.xml").getroot().findall("tripinfo")
           taxi=[t for t in trips if t.get("id")=="taxi0"]
           if len(taxi)!=1: raise SystemExit(f"expected taxi0 tripinfo, got {len(taxi)}")
@@ -57,7 +64,7 @@ jobs:
           m["kWh_per_vehicle_km"]=m["net_energy_kWh"]/dist
           if m["net_energy_kWh"]<=0: raise SystemExit("non-positive net MMPEVEM energy")
           (r/"validated_metrics.json").write_text(json.dumps(m,indent=2))
-          print(json.dumps({"request_qc":q,"energy":m},indent=2))
+          print(json.dumps({"request_qc":q,"occupied_distance_m":occupied_m,"energy":m},indent=2))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
