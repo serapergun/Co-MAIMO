@@ -6,7 +6,7 @@ on:
     paths:
       - ".github/workflows/barcelona-operational-matrix.yml"
       - "scripts/barcelona_operational_matrix.py"
-      - "scripts/aggregate_barcelona_operational.py"
+      - "scripts/aggregate_barcelona_operational.py"\n      - "scripts/plot_barcelona_operational.py"
       - "src/baselines/b1_dispatch.py"
       - "src/simulation/traci_runner.py"
       - "src/evaluation/parse_mmpevem_emissions.py"
@@ -57,7 +57,7 @@ jobs:
             cp -a "$d"/. artifacts/barcelona_operational/
           done
           python -m py_compile scripts/aggregate_barcelona_operational.py
-          python scripts/aggregate_barcelona_operational.py
+          python scripts/aggregate_barcelona_operational.py\n          pip install matplotlib\n          python -m py_compile scripts/plot_barcelona_operational.py\n          python scripts/plot_barcelona_operational.py
       - uses: actions/upload-artifact@v4
         with:
           name: operational-matrix-aggregate
