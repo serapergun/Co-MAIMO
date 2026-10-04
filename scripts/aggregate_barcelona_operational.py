@@ -17,13 +17,13 @@ for taxis in (4, 8, 12):
             raise RuntimeError(f"incomplete cell t{taxis}_r{requests}")
         if r["teleports"] != 0 or r["horizon_exceeded"]:
             raise RuntimeError(f"invalid QC cell t{taxis}_r{requests}")
-        rows.append(r)
+        if abs(r["net_energy_kWh"] - (r["gross_energy_kWh"] - r["regenerated_energy_kWh"])) > 1e-9:\n            raise RuntimeError(f"energy identity failed t{taxis}_r{requests}")\n        rows.append(r)
 
 fields = [
     "taxis","requests","assigned","completed","unresolved","teleports",
     "horizon_exceeded","final_simulation_time_s","mean_assignment_wait_s",
     "max_assignment_wait_s","occupied_km","empty_km","empty_km_share",
-    "fleet_vehicle_km","gross_energy_kWh","regen_energy_kWh","net_energy_kWh",
+    "fleet_vehicle_km","gross_energy_kWh","regenerated_energy_kWh","net_energy_kWh",
     "kWh_per_vehicle_km",
 ]
 with (OUT / "operational_matrix.csv").open("w", newline="", encoding="utf-8") as f:
