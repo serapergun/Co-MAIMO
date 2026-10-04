@@ -28,6 +28,8 @@ jobs:
           sudo apt-get install -y osmium-tool
           pip install eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Compile gate
+        run: python -m py_compile scripts/barcelona_operational_matrix.py src/simulation/traci_runner.py src/baselines/b1_dispatch.py src/evaluation/parse_mmpevem_emissions.py
       - name: Build fixed-snapshot Barcelona network
         run: python scripts/build_barcelona_network.py
       - name: Run operational scenario
