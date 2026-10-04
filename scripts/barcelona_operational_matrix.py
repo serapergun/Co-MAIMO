@@ -59,3 +59,6 @@ summary={
 summary["kWh_per_vehicle_km"]=m["net_energy_kWh"]/fleet_km if fleet_km else None
 (root/"operational_metrics.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
 print(json.dumps(summary,indent=2))
+# Teleport recovery invalidates operational distance/time/energy comparison.
+if summary["teleports"] != 0:
+    raise RuntimeError(f'Operational QC failed: {summary["teleports"]} teleported taxi(s)')
