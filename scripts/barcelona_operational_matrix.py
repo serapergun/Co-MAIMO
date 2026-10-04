@@ -28,9 +28,24 @@ for o in edges[:3000]:
         if o.getID()==d.getID(): continue
         route,_=net.getOptimalPath(o,d,vClass="passenger")
         if not route: continue
-        L=sum(e.getLength() for e in route)
-        ol=[l for l in o.getLanes() if l.allows("passenger")]; dl=[l for l in d.getLanes() if l.allows("passenger")]
-        if 3000<=L<=6000 and max((l.getLength() for l in ol),default=0)>=80 and max((l.getLength() for l in dl),default=0)>=80:
+        path_edges=list(route)
+        L=sum(e.getLength() for e in path_edges)
+        ol=[l for l in o.getLanes() if l.allows("passenger")]
+        dl=[l for l in d.getLanes() if l.allows("passenger")]
+        min_edge_len=min((e.getLength() for e in path_edges), default=0)
+        all_have_passenger_lane=all(
+            any(l.allows("passenger") for l in e.getLanes()) for e in path_edges
+        )
+        avoids_fragile_corridors=all(
+            not any(e.getID().startswith(prefix) for prefix in FRAGILE_EDGE_PREFIXES)
+            for e in path_edges
+        )
+        if (3000<=L<=6000
+                and max((l.getLength() for l in ol),default=0)>=80
+                and max((l.getLength() for l in dl),default=0)>=80
+                and min_edge_len>=25
+                and all_have_passenger_lane
+                and avoids_fragile_corridors):
             pairs.append((o.getID(),d.getID())); used.add(o.getID()); break
     if len(pairs)==12: break
 if len(pairs)<12: raise SystemExit("Could not construct 12 safe deterministic OD seeds")
