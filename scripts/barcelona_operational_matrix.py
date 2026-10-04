@@ -14,6 +14,14 @@ if not net_path.exists(): raise SystemExit("Barcelona preflight network missing"
 net=sumolib.net.readNet(str(net_path))
 edges=[e for e in net.getEdges() if not e.getID().startswith(":") and any(l.allows("passenger") for l in e.getLanes())]
 pairs=[]; used=set()
+# Corridors reproducibly observed to trigger SUMO wrong-lane teleport recovery
+# in this fixed Barcelona snapshot. Exclude any OD whose optimal passenger path
+# traverses them; the same cleaned OD pool is used for every matrix cell.
+FRAGILE_EDGE_PREFIXES=(
+    "87504601#3", "-306281847#2", "-545747621", "-545021320#3",
+    "-545747622#3", "-753154730#3", "-285182795", "533269953",
+    "300828583#0",
+)
 for o in edges[:3000]:
     if o.getID() in used: continue
     for d in edges[-1:max(-3001,-len(edges)):-20]:
