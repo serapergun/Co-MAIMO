@@ -5,7 +5,8 @@ on:
     branches: [develop]
     paths:
       - ".github/workflows/barcelona-operational-matrix.yml"
-      - "scripts/barcelona_operational_matrix.py"\n      - "scripts/aggregate_barcelona_operational.py"
+      - "scripts/barcelona_operational_matrix.py"
+      - "scripts/aggregate_barcelona_operational.py"
       - "src/baselines/b1_dispatch.py"
       - "src/simulation/traci_runner.py"
       - "src/evaluation/parse_mmpevem_emissions.py"
