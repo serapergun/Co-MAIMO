@@ -40,8 +40,20 @@ def train_episode(policy, dispatcher, qc_path):
         dispatcher.decisions,base,dispatcher.coalition_events,
         lambda_phi=LAMBDA_PHI,
     )
-    transitions=build_transitions(dispatcher.decisions,shaped,states,policy,gamma=0.99)
-    return policy.update(transitions), base, shaped
+    # A DCF swap changes the reservation context after MAPPO sampling.
+    # Its stored log-prob therefore belongs to the original reservation and
+    # cannot be used as an on-policy PPO transition for the applied swap.
+    keep=[i for i,d in enumerate(dispatcher.decisions) if not d.get("dcf_swap_applied",False)]
+    if not keep:
+        raise RuntimeError("B6 episode has no on-policy transitions after DCF filtering")
+    train_decisions=[dispatcher.decisions[i] for i in keep]
+    train_rewards=[shaped[i] for i in keep]
+    train_states=[states[i] for i in keep]
+    transitions=build_transitions(train_decisions,train_rewards,train_states,policy,gamma=0.99)
+    update=policy.update(transitions)
+    update["on_policy_transition_count"]=len(keep)
+    update["excluded_swapped_transition_count"]=len(dispatcher.decisions)-len(keep)
+    return update, base, shaped
 
 
 def main():
