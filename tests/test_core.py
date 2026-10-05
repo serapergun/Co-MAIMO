@@ -109,3 +109,24 @@ def test_mappo_training_trajectory_uses_discounted_service_returns():
     assert len(transitions) == 2
     assert abs(transitions[0].return_ - returns[0]) < 1e-12
     assert abs(transitions[1].return_ - returns[1]) < 1e-12
+
+
+def test_b6_shapley_feedback_changes_only_coalition_event_rewards():
+    from src.marl.shapley_training import b6_rewards
+    decisions=[
+        {"reservation_id":"r0"},
+        {"reservation_id":"r1"},
+        {"reservation_id":"r2"},
+    ]
+    events=[{
+        "accepted":True,
+        "members":["taxi0","taxi1"],
+        "reservation_ids":["r0","r1"],
+        "coalition_gain_s":20.0,
+        "member_gains_s":{"taxi0":12.0,"taxi1":8.0},
+    }]
+    base=[-10.0,-20.0,-30.0]
+    shaped=b6_rewards(decisions,base,events,lambda_phi=0.1)
+    assert shaped[0] != base[0]
+    assert shaped[1] != base[1]
+    assert shaped[2] == base[2]
