@@ -249,3 +249,45 @@ def test_causal_shapley_memory_resets_between_episodes():
     assert shaped1[1] != -100.0
     assert audit2[0]["has_prior_credit"] is False
     assert shaped2[0] == -100.0
+
+
+def test_ppo_clipping_gradient_regions():
+    import numpy as np
+    from src.marl.mappo import LinearMAPPO, Transition
+
+    def delta_for(advantage, ratio):
+        p=LinearMAPPO(obs_dim=1,state_dim=1,action_dim=2,seed=1)
+        p.actor_w[:]=0.0
+        before=p.actor_w.copy()
+        # Current masked probability of action 0 is 0.5. Choose old log-prob
+        # so exp(new_log_prob-old_log_prob) equals the requested ratio.
+        old_log=float(np.log(0.5)-np.log(ratio))
+        t=Transition(
+            observation=np.asarray([1.0]),
+            global_state=np.asarray([0.0]),
+            action=0,
+            old_log_prob=old_log,
+            advantage=float(advantage),
+            return_=0.0,
+            action_mask=np.asarray([True,True]),
+        )
+        p.update([t],actor_lr=0.1,critic_lr=0.0,clip_eps=0.2)
+        return float(np.abs(p.actor_w-before).sum())
+
+    # Positive advantage: upper clipping plateau stops gradient; lower side learns.
+    assert delta_for(+1.0,1.3) < 1e-12
+    assert delta_for(+1.0,0.7) > 1e-12
+    # Negative advantage: lower clipping plateau stops gradient; upper side learns.
+    assert delta_for(-1.0,0.7) < 1e-12
+    assert delta_for(-1.0,1.3) > 1e-12
+
+
+def test_ppo_rejects_invalid_clip_epsilon():
+    import numpy as np
+    import pytest
+    from src.marl.mappo import LinearMAPPO, Transition
+    p=LinearMAPPO(obs_dim=1,state_dim=1,action_dim=2,seed=1)
+    t=Transition(np.asarray([1.0]),np.asarray([0.0]),0,np.log(0.5),1.0,0.0)
+    for eps in (0.0,-0.1,1.0,1.2):
+        with pytest.raises(ValueError):
+            p.update([t],clip_eps=eps)
