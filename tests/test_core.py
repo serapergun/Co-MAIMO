@@ -225,3 +225,27 @@ def test_causal_shapley_credit_never_shapes_same_time_decision():
     assert audit[0]["has_prior_credit"] is False
     assert audit[1]["has_prior_credit"] is True
     assert shaped[1] != -100.0
+
+
+def test_causal_shapley_memory_resets_between_episodes():
+    from src.marl.causal_shapley import causal_b6_rewards
+    event={
+        "time":10.0,"accepted":True,
+        "members":["taxi0","taxi1"],
+        "reservation_ids":["r0","rx"],
+        "coalition_gain_s":20.0,
+        "member_gains_s":{"taxi0":12.0,"taxi1":8.0},
+    }
+    decisions=[
+        {"time":10.0,"reservation_id":"r0","vehicle_id":"taxi0"},
+        {"time":20.0,"reservation_id":"r1","vehicle_id":"taxi0"},
+    ]
+    shaped1,audit1=causal_b6_rewards(decisions,[-100.0,-100.0],[event],lambda_phi=0.2,decay=0.0)
+    shaped2,audit2=causal_b6_rewards(
+        [{"time":5.0,"reservation_id":"new","vehicle_id":"taxi0"}],
+        [-100.0],[],lambda_phi=0.2,decay=0.0
+    )
+    assert audit1[1]["has_prior_credit"] is True
+    assert shaped1[1] != -100.0
+    assert audit2[0]["has_prior_credit"] is False
+    assert shaped2[0] == -100.0
