@@ -8,6 +8,7 @@ on:
       - "scripts/barcelona_b4_mappo.py"
       - "scripts/barcelona_b5_dcf.py"
       - "scripts/barcelona_b6_shapley.py"
+      - "scripts/barcelona_coordination_sensitivity.py"
       - "scripts/compare_phase3a_b456.py"
       - "src/marl/**"
       - "src/coalition/**"
