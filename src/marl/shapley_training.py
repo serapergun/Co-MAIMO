@@ -43,3 +43,18 @@ def b6_rewards(decisions, base_rewards, coalition_events,
             lambda_coord=float(lambda_coord),
         ))
     return out
+
+
+def event_shares_by_taxi(event):
+    """Return exact normalized taxi shares for one accepted DCF event."""
+    if not event.get("accepted"):
+        return {}
+    members=event["members"]
+    gains=event["member_gains_s"]
+    phi=pair_swap_shapley(
+        members[0],members[1],
+        gains[members[0]],gains[members[1]],
+        event["coalition_gain_s"],
+    )
+    shares=normalized_feedback(phi,event["coalition_gain_s"])
+    return {str(k):float(v) for k,v in shares.items()}
