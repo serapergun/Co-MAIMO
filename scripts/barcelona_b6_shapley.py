@@ -69,6 +69,8 @@ def train_episode(policy, dispatcher, qc_path):
 
 
 def main():
+    if not NET.exists():
+        raise SystemExit("Barcelona preflight network missing")
     if not B4_CHECKPOINT.exists():
         raise SystemExit("B4 checkpoint required before B6 training")
     net=sumolib.net.readNet(str(NET)); pairs=safe_od_pool(net)
@@ -95,7 +97,7 @@ def main():
         update,base,shaped,credit_audit=train_episode(policy,dispatcher,outputs["request_qc"])
         on_policy_count=int(update["on_policy_transition_count"])
         credit_count=int(update["prior_credit_transition_count"])
-         history.append({
+        history.append({
             "demand_seed":seed,
             **update,
             "coalition_events":len(dispatcher.coalition_events),
