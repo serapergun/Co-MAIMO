@@ -53,3 +53,31 @@ def test_linear_mappo_action_and_update():
     assert metrics["value_loss"] >= 0.0
     assert not np.allclose(policy.actor_w, before_actor)
     assert not np.allclose(policy.critic_w, before_critic)
+
+
+def test_mappo_masked_action_never_selects_infeasible_taxi():
+    import numpy as np
+    from src.marl.mappo import LinearMAPPO
+    from src.marl.traci_adapter import masked_action
+
+    policy = LinearMAPPO(obs_dim=3, state_dim=1, action_dim=3, seed=1)
+    policy.actor_w[:] = 0.0
+    rng = np.random.default_rng(2)
+    for _ in range(50):
+        action, log_prob = masked_action(
+            policy,
+            np.array([0.2, 0.4, 0.6]),
+            np.array([False, True, False]),
+            rng,
+        )
+        assert action == 1
+        assert abs(log_prob) < 1e-12
+
+    action, log_prob = masked_action(
+        policy,
+        np.array([0.2, 0.4, 0.6]),
+        np.array([False, False, False]),
+        rng,
+    )
+    assert action is None
+    assert log_prob is None
