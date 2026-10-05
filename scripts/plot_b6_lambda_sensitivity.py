@@ -1,6 +1,7 @@
 """Publication artifacts for paired B6 Shapley lambda sensitivity."""
 from pathlib import Path
-import csv, json, statistics
+import csv, json
+from src.evaluation.paired_effects import paired_effects
 import matplotlib.pyplot as plt
 
 ROOT=Path("artifacts/barcelona_b6_lambda_sensitivity")
@@ -56,20 +57,18 @@ def main():
             vals=[float(arms[lam][s][metric]) for s in SEEDS]
             row[f"mean_{metric}"]=sum(vals)/len(vals)
             if lam != 0.0:
-                diffs=[float(arms[lam][s][metric])-float(control[s][metric]) for s in SEEDS]
-                row[f"mean_delta_vs_lambda0_{metric}"]=sum(diffs)/len(diffs)
-                row[f"median_delta_vs_lambda0_{metric}"]=statistics.median(diffs)
-                row[f"improved_seeds_vs_lambda0_{metric}"]=sum(d<0 for d in diffs)
-                row[f"worsened_seeds_vs_lambda0_{metric}"]=sum(d>0 for d in diffs)
-                row[f"tied_seeds_vs_lambda0_{metric}"]=sum(d==0 for d in diffs)
-                sd=statistics.stdev(diffs) if len(diffs)>1 else 0.0
-                row[f"paired_effect_dz_vs_lambda0_{metric}"]=(sum(diffs)/len(diffs)/sd if sd>0 else None)
-                pct=[
-                    100.0*(float(arms[lam][s][metric])-float(control[s][metric]))/float(control[s][metric])
-                    for s in SEEDS if float(control[s][metric]) != 0.0
-                ]
-                row[f"mean_paired_percent_change_vs_lambda0_{metric}"]=(sum(pct)/len(pct) if pct else None)
-                row[f"median_paired_percent_change_vs_lambda0_{metric}"]=(statistics.median(pct) if pct else None)
+                baseline=[float(control[s][metric]) for s in SEEDS]
+                current=[float(arms[lam][s][metric]) for s in SEEDS]
+                stats=paired_effects(baseline,current)
+                diffs=[y-x for x,y in zip(baseline,current)]
+                row[f"mean_delta_vs_lambda0_{metric}"]=stats["mean_difference"]
+                row[f"median_delta_vs_lambda0_{metric}"]=stats["median_difference"]
+                row[f"improved_seeds_vs_lambda0_{metric}"]=stats["improved_count"]
+                row[f"worsened_seeds_vs_lambda0_{metric}"]=stats["worsened_count"]
+                row[f"tied_seeds_vs_lambda0_{metric}"]=stats["tied_count"]
+                row[f"paired_effect_dz_vs_lambda0_{metric}"]=stats["paired_standardized_effect_dz"]
+                row[f"mean_paired_percent_change_vs_lambda0_{metric}"]=stats["mean_paired_percent_change"]
+                row[f"median_paired_percent_change_vs_lambda0_{metric}"]=stats["median_paired_percent_change"]
                 for seed,d in zip(SEEDS,diffs):
                     paired.append({
                         "lambda_phi":lam,"demand_seed":seed,"metric":metric,
