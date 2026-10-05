@@ -25,6 +25,15 @@ def load_arm(lam):
     return by
 
 def main():
+    manifest=json.loads((ROOT/"experiment_manifest.json").read_text())
+    if tuple(map(float,manifest.get("lambda_phi",()))) != LAMBDAS:
+        raise SystemExit("lambda manifest grid mismatch")
+    if tuple(map(int,manifest.get("heldout_demand_seeds",()))) != SEEDS:
+        raise SystemExit("lambda manifest held-out seeds mismatch")
+    if int(manifest.get("taxi_count",-1)) != 8 or int(manifest.get("request_count",-1)) != 24:
+        raise SystemExit("lambda manifest experiment dimensions mismatch")
+    if manifest.get("heldout_policy_updates") is not False:
+        raise SystemExit("lambda manifest does not certify frozen held-out evaluation")
     arms={lam:load_arm(lam) for lam in LAMBDAS}
     summaries=json.loads((ROOT/"lambda_sensitivity_summary.json").read_text())
     summary_by={float(r["lambda_phi"]):r for r in summaries}
