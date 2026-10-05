@@ -89,3 +89,28 @@ def test_counterfactual_adapter_requires_complete_game():
         assert False, "missing coalition must be rejected"
     except ValueError:
         pass
+
+
+def test_phase3a_exporter_rejects_contaminated_run():
+    from scripts.export_phase3a_counterfactual import record_from_summary
+
+    clean = {
+        "completed": 12,
+        "requests": 12,
+        "unresolved": 0,
+        "teleports": 0,
+        "horizon_exceeded": False,
+        "mean_pickup_wait_s": 100.0,
+        "empty_km": 20.0,
+        "net_energy_kWh": 10.0,
+    }
+    record = record_from_summary(("operator", "infrastructure"), clean)
+    assert record["coalition"] == ["operator", "infrastructure"]
+    assert record["completed"] == 12
+
+    contaminated = dict(clean, teleports=1)
+    try:
+        record_from_summary(("operator",), contaminated)
+        assert False, "teleport-contaminated coalition run must be rejected"
+    except ValueError:
+        pass
