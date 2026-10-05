@@ -63,12 +63,24 @@ def main():
     summary={}
     for overhead in OVERHEAD_S:
         subset=[r for r in rows if r["coordination_overhead_s"]==overhead]
+        event_files=[
+            ROOT/f"overhead_{int(overhead)}"/f"seed_{r['demand_seed']}"/"coalition_events.json"
+            for r in subset
+        ]
+        events=[e for path in event_files for e in json.loads(path.read_text())]
+        thresholds=[float(e["effective_break_even_overhead_s"]) for e in events]
         summary[str(int(overhead))]={
             "mean_acceptance_rate":sum(r["acceptance_rate"] for r in subset)/len(subset),
             "mean_accepted_coalitions":sum(r["accepted_coalitions"] for r in subset)/len(subset),
             "mean_pickup_wait_s":sum(r["mean_pickup_wait_s"] for r in subset)/len(subset),
             "mean_empty_km":sum(r["empty_km"] for r in subset)/len(subset),
             "mean_net_energy_kWh":sum(r["net_energy_kWh"] for r in subset)/len(subset),
+            "proposal_count":len(events),
+            "effective_break_even_overhead_s":{
+                "mean":sum(thresholds)/len(thresholds) if thresholds else None,
+                "min":min(thresholds) if thresholds else None,
+                "max":max(thresholds) if thresholds else None,
+            },
         }
     (ROOT/"sensitivity_summary.json").write_text(json.dumps(summary,indent=2))
     (ROOT/"experiment_manifest.json").write_text(json.dumps({
