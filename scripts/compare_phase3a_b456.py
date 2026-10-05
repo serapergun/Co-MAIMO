@@ -31,6 +31,10 @@ if manifests["B4"].get("training_updates_on_heldout") is not False:
     raise SystemExit("B4 manifest does not certify frozen held-out evaluation")
 if manifests["B5"].get("policy_retrained") is not False:
     raise SystemExit("B5 manifest does not certify frozen B4 policy")
+if manifests["B6"].get("heldout_policy_updates") is not False:
+    raise SystemExit("B6 manifest does not certify frozen held-out evaluation")
+if "shapley_feedback_observed" not in manifests["B6"]:
+    raise SystemExit("B6 manifest lacks Shapley feedback exposure evidence")
 b4_hash=manifests["B4"].get("checkpoint_sha256")
 b5_hash=manifests["B5"].get("policy_sha256")
 b6_hash=manifests["B6"].get("initial_policy_sha256")
@@ -112,6 +116,9 @@ summary["design"]={
     "statistical_claim":"descriptive paired multi-seed evaluation; inferential tests are not produced here",
     "provenance_verified":True,
     "shared_b4_checkpoint_sha256":b4_hash,
+    "b6_shapley_feedback_observed":bool(manifests["B6"]["shapley_feedback_observed"]),
+    "b6_aggregate_shapley_credit_coverage":manifests["B6"].get("aggregate_shapley_credit_coverage"),
+    "b6_total_nonzero_shaping_transition_count":manifests["B6"].get("total_nonzero_shaping_transition_count"),
 }
 (out/"summary_b456.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
 print(json.dumps(summary,indent=2))
