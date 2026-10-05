@@ -220,3 +220,31 @@ def test_dcf_merge_requires_system_and_member_gain():
     assert not rejected.accepted
     assert rejected.reason == "individual_rationality_violation"
     assert split_required(unfair)
+
+
+def test_dcf_accepts_only_pareto_improving_route_swap():
+    from src.coalition.dcf import CoalitionProposal, evaluate_merge
+
+    improving = CoalitionProposal(
+        members=("taxi0", "taxi1"),
+        independent_cost=100.0,
+        cooperative_cost=70.0,
+        coordination_cost=2.0,
+        member_independent_costs={"taxi0": 60.0, "taxi1": 40.0},
+        member_cooperative_costs={"taxi0": 45.0, "taxi1": 25.0},
+        member_coordination_costs={"taxi0": 1.0, "taxi1": 1.0},
+    )
+    assert evaluate_merge(improving).accepted
+
+    system_better_but_member_worse = CoalitionProposal(
+        members=("taxi0", "taxi1"),
+        independent_cost=100.0,
+        cooperative_cost=80.0,
+        coordination_cost=2.0,
+        member_independent_costs={"taxi0": 60.0, "taxi1": 40.0},
+        member_cooperative_costs={"taxi0": 35.0, "taxi1": 45.0},
+        member_coordination_costs={"taxi0": 1.0, "taxi1": 1.0},
+    )
+    d = evaluate_merge(system_better_but_member_worse)
+    assert not d.accepted
+    assert d.reason == "individual_rationality_violation"
