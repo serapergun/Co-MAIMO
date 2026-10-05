@@ -56,6 +56,15 @@ def train_episode(policy, dispatcher, qc_path):
     update["prior_credit_transition_count"]=sum(
         1 for i in keep if credit_audit[i]["has_prior_credit"]
     )
+    on_policy_deltas=[
+        float(credit_audit[i]["shaped_reward"])-float(credit_audit[i]["base_reward"])
+        for i in keep
+    ]
+    update["nonzero_shaping_transition_count"]=sum(abs(d)>1e-12 for d in on_policy_deltas)
+    update["mean_absolute_shaping_delta"]=(
+        sum(abs(d) for d in on_policy_deltas)/len(on_policy_deltas)
+        if on_policy_deltas else 0.0
+    )
     return update, base, shaped, credit_audit
 
 
@@ -86,10 +95,7 @@ def main():
         update,base,shaped,credit_audit=train_episode(policy,dispatcher,outputs["request_qc"])
         on_policy_count=int(update["on_policy_transition_count"])
         credit_count=int(update["prior_credit_transition_count"])
-        reward_deltas=[float(a["shaped_reward"])-float(a["base_reward"]) for a in credit_audit
-                       if not a.get("dcf_swap_applied",False)]
-        nonzero_shaping=sum(abs(d)>1e-12 for d in reward_deltas)
-        history.append({
+         history.append({
             "demand_seed":seed,
             **update,
             "coalition_events":len(dispatcher.coalition_events),
@@ -98,10 +104,8 @@ def main():
             "mean_shaped_reward":sum(shaped)/len(shaped),
             "prior_credit_transition_count":credit_count,
             "shapley_credit_coverage":(credit_count/on_policy_count if on_policy_count else 0.0),
-            "nonzero_shaping_transition_count":nonzero_shaping,
-            "mean_absolute_shaping_delta":(
-                sum(abs(d) for d in reward_deltas)/len(reward_deltas) if reward_deltas else 0.0
-            ),
+            "nonzero_shaping_transition_count":update["nonzero_shaping_transition_count"],
+            "mean_absolute_shaping_delta":update["mean_absolute_shaping_delta"],
         })
         (out/"shapley_credit_audit.json").write_text(json.dumps(credit_audit,indent=2))
 
