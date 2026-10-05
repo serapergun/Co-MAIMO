@@ -100,11 +100,16 @@ def main():
         "benchmark":"B6",
         "initial_policy":str(B4_CHECKPOINT),
         "initial_policy_sha256":b4_checkpoint_hash,
+        "final_policy_sha256":b6_checkpoint_hash,
         "lambda_phi":LAMBDA_PHI,
         "training_demand_seeds":list(plan.training),
+        "heldout_demand_seeds":list(plan.heldout),
     })
-
-    frozen=load_checkpoint(checkpoint); heldout=[]
+    b6_checkpoint_hash=checkpoint_sha256(checkpoint)
+    frozen=load_checkpoint(checkpoint)
+    if checkpoint_sha256(checkpoint) != b6_checkpoint_hash:
+        raise RuntimeError("B6 checkpoint changed before held-out evaluation")
+    heldout=[]
     for i,seed in enumerate(plan.heldout):
         cfg=write_scenario(ROOT/"scenarios"/f"heldout_{seed}",pairs,seed)
         out=ROOT/"heldout"/f"seed_{seed}"
