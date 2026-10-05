@@ -38,8 +38,11 @@ if "shapley_feedback_observed" not in manifests["B6"]:
 b4_hash=manifests["B4"].get("checkpoint_sha256")
 b5_hash=manifests["B5"].get("policy_sha256")
 b6_hash=manifests["B6"].get("initial_policy_sha256")
+b6_final_hash=manifests["B6"].get("final_policy_sha256")
 if not b4_hash or not b5_hash or not b6_hash or len({b4_hash,b5_hash,b6_hash}) != 1:
     raise SystemExit("B4/B5/B6 checkpoint provenance mismatch")
+if not b6_final_hash:
+    raise SystemExit("B6 manifest lacks final trained policy fingerprint")
 for method,rows in data.items():
     if set(rows)!=expected:
         raise SystemExit(f"{method} held-out seeds mismatch: {set(rows)}")
@@ -116,6 +119,7 @@ summary["design"]={
     "statistical_claim":"descriptive paired multi-seed evaluation; inferential tests are not produced here",
     "provenance_verified":True,
     "shared_b4_checkpoint_sha256":b4_hash,
+    "b6_final_policy_sha256":b6_final_hash,
     "b6_shapley_feedback_observed":bool(manifests["B6"]["shapley_feedback_observed"]),
     "b6_aggregate_shapley_credit_coverage":manifests["B6"].get("aggregate_shapley_credit_coverage"),
     "b6_total_nonzero_shaping_transition_count":manifests["B6"].get("total_nonzero_shaping_transition_count"),
