@@ -100,7 +100,6 @@ def main():
         "benchmark":"B6",
         "initial_policy":str(B4_CHECKPOINT),
         "initial_policy_sha256":b4_checkpoint_hash,
-        "final_policy_sha256":b6_checkpoint_hash,
         "lambda_phi":LAMBDA_PHI,
         "training_demand_seeds":list(plan.training),
         "heldout_demand_seeds":list(plan.heldout),
@@ -130,6 +129,7 @@ def main():
     (ROOT/"experiment_manifest.json").write_text(json.dumps({
         "benchmark":"B6_MAPPO_DCF_SHAPLEY",
         "initial_policy_sha256":b4_checkpoint_hash,
+        "final_policy_sha256":b6_checkpoint_hash,
         "lambda_phi":LAMBDA_PHI,
         "training_demand_seeds":list(plan.training),
         "heldout_demand_seeds":list(plan.heldout),
