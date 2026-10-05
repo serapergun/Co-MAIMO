@@ -81,3 +81,31 @@ def test_mappo_masked_action_never_selects_infeasible_taxi():
     )
     assert action is None
     assert log_prob is None
+
+
+def test_mappo_training_trajectory_uses_discounted_service_returns():
+    import numpy as np
+    from src.marl.mappo import LinearMAPPO
+    from src.marl.training import build_transitions, discounted_returns, dispatch_reward
+
+    rewards = [
+        dispatch_reward(20.0, 0.0),
+        dispatch_reward(10.0, 5.0),
+    ]
+    returns = discounted_returns(rewards, gamma=0.5)
+    assert abs(returns[0] - (rewards[0] + 0.5 * rewards[1])) < 1e-12
+    assert abs(returns[1] - rewards[1]) < 1e-12
+
+    policy = LinearMAPPO(obs_dim=2, state_dim=3, action_dim=2, seed=3)
+    decisions = [
+        {"observation": [0.2, 1.0], "action": 0, "log_prob": -0.4},
+        {"observation": [1.0, 0.3], "action": 1, "log_prob": -0.5},
+    ]
+    states = [
+        np.array([1.0, 0.5, 0.0]),
+        np.array([0.5, 1.0, 0.2]),
+    ]
+    transitions = build_transitions(decisions, rewards, states, policy, gamma=0.5)
+    assert len(transitions) == 2
+    assert abs(transitions[0].return_ - returns[0]) < 1e-12
+    assert abs(transitions[1].return_ - returns[1]) < 1e-12
