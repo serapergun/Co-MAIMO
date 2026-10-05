@@ -204,3 +204,24 @@ def test_mappo_episode_critic_state_is_decision_time_snapshot(tmp_path):
     batch=episode_training_batch(dispatcher,path,policy)
     assert batch[0].global_state.tolist()==[0.5,1.0,0.2]
     assert batch[0].return_ == -110.0
+
+
+def test_causal_shapley_credit_never_shapes_same_time_decision():
+    from src.marl.causal_shapley import causal_b6_rewards
+    decisions=[
+        {"time":10.0,"reservation_id":"r0","vehicle_id":"taxi0"},
+        {"time":20.0,"reservation_id":"r1","vehicle_id":"taxi0"},
+    ]
+    events=[{
+        "time":10.0,
+        "accepted":True,
+        "members":["taxi0","taxi1"],
+        "reservation_ids":["r0","rx"],
+        "coalition_gain_s":20.0,
+        "member_gains_s":{"taxi0":12.0,"taxi1":8.0},
+    }]
+    shaped,audit=causal_b6_rewards(decisions,[-100.0,-100.0],events,lambda_phi=0.2,decay=0.0)
+    assert shaped[0] == -100.0
+    assert audit[0]["has_prior_credit"] is False
+    assert audit[1]["has_prior_credit"] is True
+    assert shaped[1] != -100.0
