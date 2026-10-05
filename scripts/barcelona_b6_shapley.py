@@ -138,7 +138,44 @@ def main():
         (out/"coalition_events.json").write_text(json.dumps(dispatcher.coalition_events,indent=2))
         (out/"validated_metrics.json").write_text(json.dumps(m,indent=2))
 
+    expected_training=set(map(int,plan.training))
+    observed_training={int(r["demand_seed"]) for r in history}
+    if observed_training != expected_training:
+        raise RuntimeError(f"incomplete B6 training seeds: {observed_training}")
+    if any(int(r["on_policy_transition_count"]) <= 0 for r in history):
+        raise RuntimeError("B6 training contains an episode with no on-policy transitions")
+    total_on_policy=sum(int(r["on_policy_transition_count"]) for r in history)
+    total_credit=sum(int(r["prior_credit_transition_count"]) for r in history)
+    total_nonzero=sum(int(r["nonzero_shaping_transition_count"]) for r in history)
+    if total_credit > total_on_policy or total_nonzero > total_on_policy:
+        raise RuntimeError("invalid B6 Shapley exposure counts")
+    training_summary={
+        "training_seed_count":len(history),
+        "total_on_policy_transition_count":total_on_policy,
+        "total_excluded_swapped_transition_count":sum(
+            int(r["excluded_swapped_transition_count"]) for r in history
+        ),
+        "total_coalition_events":sum(int(r["coalition_events"]) for r in history),
+        "total_accepted_coalitions":sum(int(r["accepted_coalitions"]) for r in history),
+        "total_prior_credit_transition_count":total_credit,
+        "aggregate_shapley_credit_coverage":(
+            total_credit/total_on_policy if total_on_policy else 0.0
+        ),
+        "total_nonzero_shaping_transition_count":total_nonzero,
+        "shapley_feedback_observed":bool(total_nonzero > 0),
+        "seeds_with_prior_credit":sum(
+            int(r["prior_credit_transition_count"]) > 0 for r in history
+        ),
+        "seeds_with_nonzero_shaping":sum(
+            int(r["nonzero_shaping_transition_count"]) > 0 for r in history
+        ),
+        "interpretation":(
+            "Shapley-informed learning is empirically evidenced only when "
+            "nonzero on-policy shaping transitions are observed."
+        ),
+    }
     (ROOT/"training_history.json").write_text(json.dumps(history,indent=2))
+    (ROOT/"training_summary.json").write_text(json.dumps(training_summary,indent=2))
     (ROOT/"heldout_metrics.json").write_text(json.dumps(heldout,indent=2))
     (ROOT/"experiment_manifest.json").write_text(json.dumps({
         "benchmark":"B6_MAPPO_DCF_SHAPLEY",
@@ -152,6 +189,9 @@ def main():
         "shapley_credit_timing":"strictly prior event within the same episode",
         "shapley_credit_memory":"reset for every CRN demand seed",
         "cross_seed_learning":"policy parameters only",
+        "shapley_feedback_observed":training_summary["shapley_feedback_observed"],
+        "aggregate_shapley_credit_coverage":training_summary["aggregate_shapley_credit_coverage"],
+        "total_nonzero_shaping_transition_count":training_summary["total_nonzero_shaping_transition_count"],
     },indent=2))
     print(json.dumps({"training":history,"heldout":heldout},indent=2))
 
