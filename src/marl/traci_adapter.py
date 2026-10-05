@@ -96,6 +96,8 @@ class MAPPOTraciDispatcher:
                 "action": int(action),
                 "log_prob": float(log_prob),
                 "observation": obs.tolist(),
+                "selected_access_time_s": float(_route_time(traci, vehicle_id, reservation)),
+
                 "feasible_mask": mask.astype(int).tolist(),
             })
         return assignments
