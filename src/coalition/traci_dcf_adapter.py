@@ -67,4 +67,24 @@ class DCFMAPPOTraciDispatcher(MAPPOTraciDispatcher):
                 revised[i] = (taxi_a, [rb.id])
                 revised[i + 1] = (taxi_b, [ra.id])
 
+                # MAPPO sampled the taxis, but DCF changed which reservation
+                # each sampled taxi actually serves. Training must therefore
+                # join lifecycle reward to the applied taxi-reservation pair,
+                # while preserving the proposal reservation for audit.
+                by_vehicle = {
+                    str(d["vehicle_id"]): d
+                    for d in self.decisions
+                    if float(d["time"]) == float(now)
+                }
+                da = by_vehicle.get(str(taxi_a))
+                db = by_vehicle.get(str(taxi_b))
+                if da is None or db is None:
+                    raise RuntimeError("accepted DCF swap lacks MAPPO decision record")
+                da["proposed_reservation_id"] = str(da["reservation_id"])
+                db["proposed_reservation_id"] = str(db["reservation_id"])
+                da["reservation_id"] = str(rb.id)
+                db["reservation_id"] = str(ra.id)
+                da["dcf_swap_applied"] = True
+                db["dcf_swap_applied"] = True
+
         return revised
