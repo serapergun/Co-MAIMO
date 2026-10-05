@@ -49,8 +49,5 @@ for r in rows:
         f'{r["fleet_vehicle_km"]:.3f} | {r["net_energy_kWh"]:.3f} | '
         f'{r["kWh_per_vehicle_km"]:.5f} |'
     )
-(OUT / "operational_matrix_table.md").write_text("
-".join(md) + "
-", encoding="utf-8")
-print("
-".join(md))
+(OUT / "operational_matrix_table.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+print("\n".join(md))
