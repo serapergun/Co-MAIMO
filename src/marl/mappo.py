@@ -60,6 +60,8 @@ class LinearMAPPO:
 
     def update(self,transitions,actor_lr=1e-2,critic_lr=1e-2,clip_eps=0.2):
         if not transitions: raise ValueError("MAPPO update requires transitions")
+        if not 0.0 < float(clip_eps) < 1.0:
+            raise ValueError("clip_eps must be in (0,1)")
         raw_adv=np.asarray([float(t.advantage) for t in transitions])
         # Standardize only when dispersion exists; preserves a valid signal for
         # one-transition/same-advantage batches.
@@ -80,9 +82,17 @@ class LinearMAPPO:
             ratio=float(np.exp(new_log_prob-t.old_log_prob))
             clipped=float(np.clip(ratio,1.0-clip_eps,1.0+clip_eps))
             unclipped_obj=ratio*float(adv); clipped_obj=clipped*float(adv)
-            use_unclipped=unclipped_obj<=clipped_obj
+            # The PPO surrogate is min(ratio*A, clip(ratio)*A).
+            # Differentiate only when the *strictly* unclipped branch determines
+            # the objective. At a clipping plateau/boundary we choose zero
+            # subgradient, avoiding an artificial push farther into saturation.
+            use_unclipped=unclipped_obj < clipped_obj or abs(ratio-clipped) < 1e-12
+            at_clip_boundary=(
+                abs(ratio-(1.0-clip_eps)) < 1e-12
+                or abs(ratio-(1.0+clip_eps)) < 1e-12
+            )
             policy_objective+=min(unclipped_obj,clipped_obj)
-            if use_unclipped:
+            if use_unclipped and not at_clip_boundary:
                 grad_logp=np.zeros_like(self.actor_w)
                 # Gradient of masked softmax: infeasible logits have zero effect.
                 feasible=np.flatnonzero(mask)
