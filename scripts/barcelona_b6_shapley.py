@@ -118,6 +118,9 @@ def main():
         "heldout_demand_seeds":list(plan.heldout),
         "heldout_policy_updates":False,
         "shapley_scope":"accepted operational DCF events only",
+        "shapley_credit_timing":"strictly prior event within the same episode",
+        "shapley_credit_memory":"reset for every CRN demand seed",
+        "cross_seed_learning":"policy parameters only",
     },indent=2))
     print(json.dumps({"training":history,"heldout":heldout},indent=2))
 
