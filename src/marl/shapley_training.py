@@ -18,7 +18,8 @@ def shapley_feedback_by_reservation(coalition_events):
             event["coalition_gain_s"],
         )
         shares=normalized_feedback(phi, event["coalition_gain_s"])
-        # After an accepted swap, taxi_a serves reservation_b and vice versa.
+        # Accepted DCF swaps rewrite decision reservation_id to the
+        # actually served reservation. taxi_a serves reservation_b and vice versa.
         feedback[str(reservations[1])] = shares[members[0]]
         feedback[str(reservations[0])] = shares[members[1]]
     return feedback
