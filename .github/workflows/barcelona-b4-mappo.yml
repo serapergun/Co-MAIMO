@@ -32,25 +32,18 @@ jobs:
           import json, xml.etree.ElementTree as ET
           from pathlib import Path
           from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
-          r=Path("artifacts/barcelona_b4_mappo/heldout")
-          q=json.loads((r/"request_qc.json").read_text())
-          if len(q["assigned_reservations"]) != 24: raise SystemExit("held-out B4 did not assign all requests")
-          if q["duplicate_assignments"]: raise SystemExit(f"duplicate assignments: {q['duplicate_assignments']}")
-          if q["final_active_reservations"] or q["remaining_persons"]: raise SystemExit("held-out B4 has unresolved demand")
-          if q["teleported_vehicle_ids"]: raise SystemExit(f"held-out B4 teleport: {q['teleported_vehicle_ids']}")
-          if q["horizon_exceeded"]: raise SystemExit("held-out B4 exceeded horizon")
-          trips=ET.parse(r/"tripinfo.xml").getroot().findall("tripinfo")
-          taxis=[t for t in trips if t.get("id","").startswith("taxi")]
-          km=sum(float(t.get("routeLength","0")) for t in taxis)/1000.0
-          energy=mmpevem_emission_energy(r/"emissions.xml")
-          if km <= 0 or energy["net_energy_kWh"] <= 0: raise SystemExit("invalid physical output")
-          energy["fleet_vehicle_km"]=km
-          energy["kWh_per_vehicle_km"]=energy["net_energy_kWh"]/km
-          pickup=list(map(float,q["pickup_wait_s"].values()))
-          energy["mean_pickup_wait_s"]=sum(pickup)/len(pickup)
-          energy["max_pickup_wait_s"]=max(pickup)
-          (r/"validated_metrics.json").write_text(json.dumps(energy,indent=2))
-          print(json.dumps(energy,indent=2))
+          root=Path("artifacts/barcelona_b4_mappo")
+          rows=json.loads((root/"heldout_metrics.json").read_text())
+          expected={9101,9102,9103,9104,9105}
+          got={int(r["demand_seed"]) for r in rows}
+          if got != expected: raise SystemExit(f"held-out CRN seeds mismatch: {got}")
+          if len(rows) != 5: raise SystemExit("expected five held-out B4 runs")
+          for r in rows:
+              if r["completed"] != 24 or r["unresolved"] != 0 or r["teleports"] != 0:
+                  raise SystemExit(f"held-out lifecycle QC failed: {r}")
+              if r["net_energy_kWh"] <= 0 or r["fleet_vehicle_km"] <= 0:
+                  raise SystemExit(f"held-out physical QC failed: {r}")
+          print(json.dumps(rows,indent=2))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
