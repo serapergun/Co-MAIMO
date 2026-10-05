@@ -177,3 +177,30 @@ def test_shapley_reward_modulation_is_dimensionally_consistent():
     assert high == -95.0
     assert low == -105.0
     assert cooperative_reward(base,coalition_event=False,normalized_shapley=1.0,lambda_phi=0.2) == base
+
+
+def test_mappo_episode_critic_state_is_decision_time_snapshot(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from src.marl.mappo import LinearMAPPO
+    from src.marl.episode import episode_training_batch
+
+    policy=LinearMAPPO(obs_dim=2,state_dim=3,action_dim=2,seed=3)
+    dispatcher=SimpleNamespace(decisions=[{
+        "reservation_id":"0",
+        "observation":[0.2,1.0],
+        "action":0,
+        "log_prob":float(__import__("numpy").log(policy.masked_action_probs([0.2,1.0],[True,True])[0])),
+        "feasible_mask":[1,1],
+        "global_state":[0.5,1.0,0.2],
+    }])
+    qc={
+        "request_first_seen_s":{"0":10.0},
+        "request_assigned_s":{"0":20.0},
+        "request_pickup_s":{"0":120.0},
+        "final_active_reservations":["future-outcome-must-not-enter-state"],
+    }
+    path=tmp_path/"qc.json"; path.write_text(json.dumps(qc))
+    batch=episode_training_batch(dispatcher,path,policy)
+    assert batch[0].global_state.tolist()==[0.5,1.0,0.2]
+    assert batch[0].return_ == -110.0
