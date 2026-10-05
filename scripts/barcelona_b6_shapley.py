@@ -84,6 +84,11 @@ def main():
         outputs=run(cfg,out,dispatcher,max_time_s=18000)
         validate_episode(out)
         update,base,shaped,credit_audit=train_episode(policy,dispatcher,outputs["request_qc"])
+        on_policy_count=int(update["on_policy_transition_count"])
+        credit_count=int(update["prior_credit_transition_count"])
+        reward_deltas=[float(a["shaped_reward"])-float(a["base_reward"]) for a in credit_audit
+                       if not a.get("dcf_swap_applied",False)]
+        nonzero_shaping=sum(abs(d)>1e-12 for d in reward_deltas)
         history.append({
             "demand_seed":seed,
             **update,
@@ -91,7 +96,12 @@ def main():
             "accepted_coalitions":sum(e["accepted"] for e in dispatcher.coalition_events),
             "mean_base_reward":sum(base)/len(base),
             "mean_shaped_reward":sum(shaped)/len(shaped),
-            "prior_credit_transition_count":update["prior_credit_transition_count"],
+            "prior_credit_transition_count":credit_count,
+            "shapley_credit_coverage":(credit_count/on_policy_count if on_policy_count else 0.0),
+            "nonzero_shaping_transition_count":nonzero_shaping,
+            "mean_absolute_shaping_delta":(
+                sum(abs(d) for d in reward_deltas)/len(reward_deltas) if reward_deltas else 0.0
+            ),
         })
         (out/"shapley_credit_audit.json").write_text(json.dumps(credit_audit,indent=2))
 
