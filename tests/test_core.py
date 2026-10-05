@@ -291,3 +291,33 @@ def test_ppo_rejects_invalid_clip_epsilon():
     for eps in (0.0,-0.1,1.0,1.2):
         with pytest.raises(ValueError):
             p.update([t],clip_eps=eps)
+
+
+def test_dcf_coordination_overhead_break_even_and_ir():
+    from src.coalition.dcf import CoalitionProposal, evaluate_merge
+
+    def proposal(overhead, coop_a=70.0, coop_b=80.0):
+        return CoalitionProposal(
+            members=("taxi0","taxi1"),
+            independent_cost=200.0,
+            cooperative_cost=coop_a+coop_b,
+            coordination_cost=float(overhead),
+            member_independent_costs={"taxi0":100.0,"taxi1":100.0},
+            member_cooperative_costs={"taxi0":coop_a,"taxi1":coop_b},
+            member_coordination_costs={"taxi0":overhead/2.0,"taxi1":overhead/2.0},
+        )
+
+    # System break-even is 50 s, but taxi1's IR break-even is 40 s.
+    assert evaluate_merge(proposal(39.0)).accepted is True
+    at_ir=evaluate_merge(proposal(41.0))
+    assert at_ir.accepted is False
+    assert at_ir.reason == "individual_rationality_violation"
+    above_system=evaluate_merge(proposal(51.0))
+    assert above_system.accepted is False
+    assert above_system.reason == "no_positive_coalition_gain"
+
+    # Positive system gain is insufficient when one member is harmed.
+    ir_only=evaluate_merge(proposal(10.0,coop_a=60.0,coop_b=101.0))
+    assert ir_only.coalition_gain > 0.0
+    assert ir_only.accepted is False
+    assert ir_only.reason == "individual_rationality_violation"
