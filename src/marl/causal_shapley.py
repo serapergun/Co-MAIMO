@@ -7,6 +7,11 @@ from src.marl.shapley_training import event_shares_by_taxi
 
 def causal_b6_rewards(decisions, base_rewards, coalition_events,
                       lambda_phi=0.1, decay=0.9):
+    """Shape one independent episode using only its own prior DCF events.
+
+    Memory is intentionally initialized here so CRN demand seeds remain
+    independent realizations; learning persists only through policy parameters.
+    """
     if len(decisions) != len(base_rewards):
         raise ValueError("decision/reward length mismatch")
     memory=ShapleyCreditMemory(decay=decay)
