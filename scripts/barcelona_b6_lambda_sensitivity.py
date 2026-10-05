@@ -36,6 +36,8 @@ def train_episode(policy,dispatcher,qc_path,lambda_phi):
         if queue < 0 or access < 0:
             raise RuntimeError(f"invalid lifecycle ordering for {rid}")
         base.append(dispatch_reward(access,queue))
+        if "global_state" not in d:
+            raise RuntimeError(f"missing decision-time critic state for {rid}")
         states.append(np.asarray(d["global_state"],dtype=float))
     shaped,audit=causal_b6_rewards(
         dispatcher.decisions,base,dispatcher.coalition_events,
@@ -61,6 +63,8 @@ def train_episode(policy,dispatcher,qc_path,lambda_phi):
     }
 
 def main():
+    if not NET.exists():
+        raise SystemExit("Barcelona preflight network missing")
     if not B4_CHECKPOINT.exists():
         raise SystemExit("B4 checkpoint required")
     plan=DEFAULT_PHASE3A_SEEDS.validate()
@@ -71,6 +75,9 @@ def main():
         raise SystemExit("B4 training seeds mismatch")
     if tuple(meta.get("heldout_demand_seeds",())) != tuple(plan.heldout):
         raise SystemExit("B4 held-out seeds mismatch")
+    initial=load_checkpoint(B4_CHECKPOINT)
+    if initial.action_dim != 8 or initial.obs_dim != 8 or initial.state_dim != 3:
+        raise SystemExit("B4 checkpoint dimensions incompatible with lambda sensitivity")
     b4_hash=checkpoint_sha256(B4_CHECKPOINT)
     pairs=safe_od_pool(sumolib.net.readNet(str(NET)))
     arm_summaries=[]
