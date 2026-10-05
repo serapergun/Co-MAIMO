@@ -45,15 +45,10 @@ def reservation_features(traci, reservation, fleet):
 
 def masked_action(policy, observation, mask, rng):
     """Sample from the policy after removing infeasible taxi actions."""
-    probs = policy.action_probs(observation)
     mask = np.asarray(mask, dtype=bool)
-    if probs.shape != mask.shape:
-        raise ValueError("policy action space and feasibility mask differ")
-    masked = np.where(mask, probs, 0.0)
-    total = float(masked.sum())
-    if total <= 0:
+    if not mask.any():
         return None, None
-    masked /= total
+    masked = policy.masked_action_probs(observation, mask)
     action = int(rng.choice(len(masked), p=masked))
     return action, float(np.log(max(masked[action], 1e-15)))
 
