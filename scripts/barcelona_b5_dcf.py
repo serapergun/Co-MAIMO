@@ -5,7 +5,7 @@ import sumolib
 
 from src.data.barcelona_crn import safe_od_pool
 from src.evaluation.phase3a_crn import DEFAULT_PHASE3A_SEEDS
-from src.marl.checkpoint import load_checkpoint
+from src.marl.checkpoint import load_checkpoint, load_checkpoint_metadata, checkpoint_sha256
 from src.coalition.traci_dcf_adapter import DCFMAPPOTraciDispatcher
 from src.simulation.traci_runner import run
 
@@ -27,8 +27,18 @@ def main():
 
     net = sumolib.net.readNet(str(NET))
     pairs = safe_od_pool(net)
-    policy = load_checkpoint(B4_CHECKPOINT)
     plan = DEFAULT_PHASE3A_SEEDS.validate()
+    meta = load_checkpoint_metadata(B4_CHECKPOINT)
+    if meta.get("benchmark") != "B4":
+        raise SystemExit("B5 requires a checkpoint explicitly tagged benchmark=B4")
+    if tuple(meta.get("training_demand_seeds", ())) != tuple(plan.training):
+        raise SystemExit("B4 checkpoint training seeds do not match Phase3A CRN plan")
+    if tuple(meta.get("heldout_demand_seeds", ())) != tuple(plan.heldout):
+        raise SystemExit("B4 checkpoint held-out seeds do not match Phase3A CRN plan")
+    policy = load_checkpoint(B4_CHECKPOINT)
+    if policy.action_dim != N_TAXIS or policy.obs_dim != N_TAXIS or policy.state_dim != 3:
+        raise SystemExit("B4 checkpoint dimensions incompatible with B5 protocol")
+    checkpoint_hash = checkpoint_sha256(B4_CHECKPOINT)
     heldout = []
 
     for i, demand_seed in enumerate(plan.heldout):
@@ -61,6 +71,7 @@ def main():
     (ROOT / "experiment_manifest.json").write_text(json.dumps({
         "benchmark": "B5_MAPPO_DCF_CCE",
         "policy_source": str(B4_CHECKPOINT),
+        "policy_sha256": checkpoint_hash,
         "policy_retrained": False,
         "heldout_demand_seeds": list(plan.heldout),
         "coordination_cost_s": 0.0,
