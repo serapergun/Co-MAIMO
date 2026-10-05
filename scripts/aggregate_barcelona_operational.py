@@ -17,7 +17,9 @@ for taxis in (4, 8, 12):
             raise RuntimeError(f"incomplete cell t{taxis}_r{requests}")
         if r["teleports"] != 0 or r["horizon_exceeded"]:
             raise RuntimeError(f"invalid QC cell t{taxis}_r{requests}")
-        if abs(r["net_energy_kWh"] - (r["gross_energy_kWh"] - r["regenerated_energy_kWh"])) > 1e-9:\n            raise RuntimeError(f"energy identity failed t{taxis}_r{requests}")\n        rows.append(r)
+        if abs(r["net_energy_kWh"] - (r["gross_energy_kWh"] - r["regenerated_energy_kWh"])) > 1e-9:
+            raise RuntimeError(f"energy identity failed t{taxis}_r{requests}")
+        rows.append(r)
 
 fields = [
     "taxis","requests","assigned","completed","unresolved","teleports",
@@ -47,5 +49,8 @@ for r in rows:
         f'{r["fleet_vehicle_km"]:.3f} | {r["net_energy_kWh"]:.3f} | '
         f'{r["kWh_per_vehicle_km"]:.5f} |'
     )
-(OUT / "operational_matrix_table.md").write_text("\n".join(md) + "\n", encoding="utf-8")
-print("\n".join(md))
+(OUT / "operational_matrix_table.md").write_text("
+".join(md) + "
+", encoding="utf-8")
+print("
+".join(md))
