@@ -33,8 +33,9 @@ def train_episode(policy, dispatcher, qc_path):
         if queue < 0 or access < 0:
             raise RuntimeError(f"invalid lifecycle ordering for {rid}")
         base.append(dispatch_reward(access,queue))
-        total=max(1.0,queue+access)
-        states.append(np.asarray([queue/total,access/total,float(len(q["final_active_reservations"]))]))
+        if "global_state" not in d:
+            raise RuntimeError(f"missing decision-time critic state for {rid}")
+        states.append(np.asarray(d["global_state"],dtype=float))
     shaped=b6_rewards(
         dispatcher.decisions,base,dispatcher.coalition_events,
         lambda_phi=LAMBDA_PHI,
