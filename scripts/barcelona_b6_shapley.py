@@ -8,7 +8,7 @@ from src.data.barcelona_crn import safe_od_pool
 from src.evaluation.phase3a_crn import DEFAULT_PHASE3A_SEEDS
 from src.marl.checkpoint import load_checkpoint, save_checkpoint
 from src.marl.training import dispatch_reward, build_transitions
-from src.marl.shapley_training import b6_rewards
+from src.marl.causal_shapley import causal_b6_rewards
 from src.coalition.traci_dcf_adapter import DCFMAPPOTraciDispatcher
 from src.simulation.traci_runner import run
 from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET
@@ -36,9 +36,9 @@ def train_episode(policy, dispatcher, qc_path):
         if "global_state" not in d:
             raise RuntimeError(f"missing decision-time critic state for {rid}")
         states.append(np.asarray(d["global_state"],dtype=float))
-    shaped=b6_rewards(
+    shaped,credit_audit=causal_b6_rewards(
         dispatcher.decisions,base,dispatcher.coalition_events,
-        lambda_phi=LAMBDA_PHI,
+        lambda_phi=LAMBDA_PHI,decay=0.9,
     )
     # A DCF swap changes the reservation context after MAPPO sampling.
     # Its stored log-prob therefore belongs to the original reservation and
@@ -53,7 +53,10 @@ def train_episode(policy, dispatcher, qc_path):
     update=policy.update(transitions)
     update["on_policy_transition_count"]=len(keep)
     update["excluded_swapped_transition_count"]=len(dispatcher.decisions)-len(keep)
-    return update, base, shaped
+    update["prior_credit_transition_count"]=sum(
+        1 for i in keep if credit_audit[i]["has_prior_credit"]
+    )
+    return update, base, shaped, credit_audit
 
 
 def main():
@@ -70,7 +73,7 @@ def main():
         dispatcher=DCFMAPPOTraciDispatcher(policy,seed=POLICY_SEED+i+1,coordination_cost_s=0.0)
         outputs=run(cfg,out,dispatcher,max_time_s=18000)
         validate_episode(out)
-        update,base,shaped=train_episode(policy,dispatcher,outputs["request_qc"])
+        update,base,shaped,credit_audit=train_episode(policy,dispatcher,outputs["request_qc"])
         history.append({
             "demand_seed":seed,
             **update,
@@ -78,7 +81,9 @@ def main():
             "accepted_coalitions":sum(e["accepted"] for e in dispatcher.coalition_events),
             "mean_base_reward":sum(base)/len(base),
             "mean_shaped_reward":sum(shaped)/len(shaped),
+            "prior_credit_transition_count":update["prior_credit_transition_count"],
         })
+        (out/"shapley_credit_audit.json").write_text(json.dumps(credit_audit,indent=2))
 
     checkpoint=ROOT/"checkpoints"/"b6_mappo_dcf_shapley_final.npz"
     save_checkpoint(policy,checkpoint,{
