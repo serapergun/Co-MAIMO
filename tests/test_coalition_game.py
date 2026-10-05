@@ -185,8 +185,9 @@ def test_phase3a_capability_dependencies_and_benchmarks():
     assert benchmark_mapping(("marl", "dcf", "shapley_feedback")) == "B6"
 
     for invalid in [("dcf",), ("shapley_feedback",), ("marl", "shapley_feedback")]:
+        rejected = False
         try:
             validate_capability_coalition(invalid)
-            assert False, f"dependency-invalid coalition accepted: {invalid}"
         except ValueError:
-            pass
+            rejected = True
+        assert rejected, f"dependency-invalid coalition accepted: {invalid}"
