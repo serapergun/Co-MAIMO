@@ -16,7 +16,7 @@ from src.marl.training import dispatch_reward, build_transitions
 from src.marl.causal_shapley import causal_b6_rewards
 from src.coalition.traci_dcf_adapter import DCFMAPPOTraciDispatcher
 from src.simulation.traci_runner import run
-from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET
+from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET, N_TAXIS, N_REQUESTS
 
 ROOT=Path("artifacts/barcelona_b6_lambda_sensitivity")
 B4_CHECKPOINT=Path("artifacts/barcelona_b4_mappo/checkpoints/b4_mappo_final.npz")
@@ -76,7 +76,7 @@ def main():
     if tuple(meta.get("heldout_demand_seeds",())) != tuple(plan.heldout):
         raise SystemExit("B4 held-out seeds mismatch")
     initial=load_checkpoint(B4_CHECKPOINT)
-    if initial.action_dim != 8 or initial.obs_dim != 8 or initial.state_dim != 3:
+    if initial.action_dim != N_TAXIS or initial.obs_dim != N_TAXIS or initial.state_dim != 3:
         raise SystemExit("B4 checkpoint dimensions incompatible with lambda sensitivity")
     b4_hash=checkpoint_sha256(B4_CHECKPOINT)
     pairs=safe_od_pool(sumolib.net.readNet(str(NET)))
@@ -150,6 +150,8 @@ def main():
         "heldout_demand_seeds":list(plan.heldout),
         "paired_crn":True,
         "heldout_policy_updates":False,
+        "taxi_count":N_TAXIS,
+        "request_count":N_REQUESTS,
         "selection_claim":"sensitivity/ablation only; no lambda is declared optimal from this grid",
     },indent=2))
     print(json.dumps(arm_summaries,indent=2))
