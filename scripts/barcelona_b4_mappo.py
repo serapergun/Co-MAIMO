@@ -11,7 +11,7 @@ from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
 from src.marl.mappo import LinearMAPPO
 from src.marl.traci_adapter import MAPPOTraciDispatcher
 from src.marl.episode import train_completed_episode
-from src.marl.checkpoint import save_checkpoint, load_checkpoint
+from src.marl.checkpoint import save_checkpoint, load_checkpoint, checkpoint_sha256
 from src.simulation.traci_runner import run
 
 
@@ -107,6 +107,7 @@ def main():
         "policy_seed": POLICY_SEED,
     })
 
+    checkpoint_hash = checkpoint_sha256(checkpoint)
     frozen = load_checkpoint(checkpoint)
     heldout = []
     for i, demand_seed in enumerate(plan.heldout):
@@ -124,6 +125,7 @@ def main():
     (ROOT / "heldout_metrics.json").write_text(json.dumps(heldout, indent=2), encoding="utf-8")
     (ROOT / "experiment_manifest.json").write_text(json.dumps({
         "benchmark": "B4_MAPPO",
+        "checkpoint_sha256": checkpoint_hash,
         "training_demand_seeds": list(plan.training),
         "heldout_demand_seeds": list(plan.heldout),
         "policy_seed": POLICY_SEED,
