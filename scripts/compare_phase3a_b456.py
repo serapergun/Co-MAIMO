@@ -1,5 +1,5 @@
 """Create paired B4-B5-B6 held-out comparison from validated CRN outputs."""
-import argparse, csv, json
+import argparse, csv, json, math, statistics
 from pathlib import Path
 
 p=argparse.ArgumentParser()
@@ -69,6 +69,33 @@ for method in ("B4","B5","B6"):
     for metric in ("mean_pickup_wait_s","empty_km","net_energy_kWh","kWh_per_vehicle_km"):
         vals=[data[method][s][metric] for s in sorted(expected)]
         summary[method][metric]={"mean":sum(vals)/len(vals),"min":min(vals),"max":max(vals)}
+# Paired descriptive effect reporting. Lower is better for all four
+# operational metrics. With only five held-out CRN seeds, these are descriptive
+# robustness statistics rather than inferential significance tests.
+effects={}
+for comparison,left,right in (
+    ("B5_minus_B4","B4","B5"),
+    ("B6_minus_B5","B5","B6"),
+    ("B6_minus_B4","B4","B6"),
+):
+    effects[comparison]={}
+    for metric in ("mean_pickup_wait_s","empty_km","net_energy_kWh","kWh_per_vehicle_km"):
+        diffs=[float(data[right][s][metric])-float(data[left][s][metric]) for s in sorted(expected)]
+        mean_diff=sum(diffs)/len(diffs)
+        sd_diff=statistics.stdev(diffs) if len(diffs)>1 else 0.0
+        dz=(mean_diff/sd_diff) if sd_diff>0 else None
+        effects[comparison][metric]={
+            "mean_difference":mean_diff,
+            "median_difference":statistics.median(diffs),
+            "min_difference":min(diffs),
+            "max_difference":max(diffs),
+            "improved_seed_count":sum(d<0 for d in diffs),
+            "worsened_seed_count":sum(d>0 for d in diffs),
+            "tied_seed_count":sum(d==0 for d in diffs),
+            "paired_standardized_effect_dz":dz,
+            "direction":"lower_is_better",
+        }
+summary["paired_effects"]=effects
 summary["design"]={
     "heldout_seeds":sorted(expected),
     "paired_crn":True,
