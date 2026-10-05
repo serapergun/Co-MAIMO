@@ -56,3 +56,36 @@ def test_nucleolus_symmetric_three_player_game():
     assert qc["efficient"]
     assert qc["individually_rational"]
     assert qc["rank"] == 3
+
+
+def test_counterfactual_adapter_requires_complete_game():
+    from src.coalition.counterfactual_adapter import characteristic_values_from_counterfactuals
+    from src.coalition.operational_valuation import OperationalEvidence
+
+    players = ("A", "B")
+    ref = OperationalEvidence(10, 10, 100.0, 20.0, 10.0)
+    def rec(coalition, wait, empty, energy):
+        return {
+            "coalition": coalition,
+            "completed": 10,
+            "requests": 10,
+            "mean_pickup_wait_s": wait,
+            "empty_km": empty,
+            "net_energy_kWh": energy,
+        }
+    records = [
+        rec(["A"], 90, 18, 9),
+        rec(["B"], 80, 16, 8),
+        rec(["A", "B"], 50, 10, 5),
+    ]
+    values = characteristic_values_from_counterfactuals(players, records, ref)
+    assert set(values) == {
+        frozenset(), frozenset({"A"}), frozenset({"B"}), frozenset({"A", "B"})
+    }
+    assert abs(values[frozenset({"A", "B"})] - 0.5) < 1e-12
+
+    try:
+        characteristic_values_from_counterfactuals(players, records[:-1], ref)
+        assert False, "missing coalition must be rejected"
+    except ValueError:
+        pass
