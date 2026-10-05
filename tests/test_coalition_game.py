@@ -35,3 +35,24 @@ def test_shapley_additive_game_and_qc():
     qc = allocation_qc(players, values, phi)
     assert qc["efficient"]
     assert qc["individually_rational"]
+
+
+def test_nucleolus_symmetric_three_player_game():
+    from src.coalition.game import nucleolus
+
+    players = ("A", "B", "C")
+    values = {
+        frozenset(): 0.0,
+        frozenset({"A"}): 0.0,
+        frozenset({"B"}): 0.0,
+        frozenset({"C"}): 0.0,
+        frozenset({"A", "B"}): 0.0,
+        frozenset({"A", "C"}): 0.0,
+        frozenset({"B", "C"}): 0.0,
+        frozenset({"A", "B", "C"}): 1.0,
+    }
+    x, qc = nucleolus(players, values)
+    assert all(abs(x[p] - 1.0 / 3.0) < 1e-9 for p in players)
+    assert qc["efficient"]
+    assert qc["individually_rational"]
+    assert qc["rank"] == 3
