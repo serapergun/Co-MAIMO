@@ -1,0 +1,59 @@
+name: barcelona-b4-mappo
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-b4-mappo.yml"
+      - "scripts/barcelona_b4_mappo.py"
+      - "src/marl/**"
+      - "src/simulation/traci_runner.py"
+jobs:
+  b4-mappo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Build fixed-snapshot Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Train and evaluate frozen B4 MAPPO
+        run: PYTHONPATH=. python scripts/barcelona_b4_mappo.py
+      - name: Validate held-out lifecycle and MMPEVEM energy
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
+          r=Path("artifacts/barcelona_b4_mappo/heldout")
+          q=json.loads((r/"request_qc.json").read_text())
+          if len(q["assigned_reservations"]) != 24: raise SystemExit("held-out B4 did not assign all requests")
+          if q["duplicate_assignments"]: raise SystemExit(f"duplicate assignments: {q['duplicate_assignments']}")
+          if q["final_active_reservations"] or q["remaining_persons"]: raise SystemExit("held-out B4 has unresolved demand")
+          if q["teleported_vehicle_ids"]: raise SystemExit(f"held-out B4 teleport: {q['teleported_vehicle_ids']}")
+          if q["horizon_exceeded"]: raise SystemExit("held-out B4 exceeded horizon")
+          trips=ET.parse(r/"tripinfo.xml").getroot().findall("tripinfo")
+          taxis=[t for t in trips if t.get("id","").startswith("taxi")]
+          km=sum(float(t.get("routeLength","0")) for t in taxis)/1000.0
+          energy=mmpevem_emission_energy(r/"emissions.xml")
+          if km <= 0 or energy["net_energy_kWh"] <= 0: raise SystemExit("invalid physical output")
+          energy["fleet_vehicle_km"]=km
+          energy["kWh_per_vehicle_km"]=energy["net_energy_kWh"]/km
+          pickup=list(map(float,q["pickup_wait_s"].values()))
+          energy["mean_pickup_wait_s"]=sum(pickup)/len(pickup)
+          energy["max_pickup_wait_s"]=max(pickup)
+          (r/"validated_metrics.json").write_text(json.dumps(energy,indent=2))
+          print(json.dumps(energy,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b4-mappo
+          path: artifacts/barcelona_b4_mappo/
