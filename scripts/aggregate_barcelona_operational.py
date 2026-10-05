@@ -24,7 +24,8 @@ for taxis in (4, 8, 12):
 fields = [
     "taxis","requests","assigned","completed","unresolved","teleports",
     "horizon_exceeded","final_simulation_time_s","mean_assignment_wait_s",
-    "max_assignment_wait_s","occupied_km","empty_km","empty_km_share",
+    "max_assignment_wait_s","mean_pickup_wait_s","max_pickup_wait_s",
+    "mean_post_assignment_pickup_s","occupied_km","empty_km","empty_km_share",
     "fleet_vehicle_km","gross_energy_kWh","regenerated_energy_kWh","net_energy_kWh",
     "kWh_per_vehicle_km",
 ]
@@ -39,13 +40,14 @@ with (OUT / "operational_matrix.csv").open("w", newline="", encoding="utf-8") as
 )
 
 md = [
-    "| Taxis | Requests | Completed | Mean assignment delay (s) | Empty share (%) | Fleet km | Net energy (kWh) | kWh/veh-km |",
-    "|---:|---:|---:|---:|---:|---:|---:|---:|",
+    "| Taxis | Requests | Completed | Mean assignment delay (s) | Mean pickup wait (s) | Max pickup wait (s) | Empty share (%) | Fleet km | Net energy (kWh) | kWh/veh-km |",
+    "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
 ]
 for r in rows:
     md.append(
         f'| {r["taxis"]} | {r["requests"]} | {r["completed"]}/{r["requests"]} | '
-        f'{r["mean_assignment_wait_s"]:.1f} | {100*r["empty_km_share"]:.2f} | '
+        f'{r["mean_assignment_wait_s"]:.1f} | {r["mean_pickup_wait_s"]:.1f} | '
+        f'{r["max_pickup_wait_s"]:.1f} | {100*r["empty_km_share"]:.2f} | '
         f'{r["fleet_vehicle_km"]:.3f} | {r["net_energy_kWh"]:.3f} | '
         f'{r["kWh_per_vehicle_km"]:.5f} |'
     )
