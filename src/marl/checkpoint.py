@@ -1,6 +1,7 @@
 """Checkpoint I/O for the lightweight B4 MAPPO policy."""
 
 import json
+import hashlib
 from pathlib import Path
 import numpy as np
 
@@ -24,6 +25,21 @@ def save_checkpoint(policy, path, metadata=None):
         encoding="utf-8",
     )
     return str(path)
+
+
+def checkpoint_sha256(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def load_checkpoint_metadata(path):
+    meta_path = Path(path).with_suffix(Path(path).suffix + ".json")
+    if not meta_path.exists():
+        raise FileNotFoundError(f"checkpoint metadata missing: {meta_path}")
+    return json.loads(meta_path.read_text(encoding="utf-8"))
 
 
 def load_checkpoint(path):
