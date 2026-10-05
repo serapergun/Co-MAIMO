@@ -82,6 +82,12 @@ for comparison,left,right in (
     for metric in ("mean_pickup_wait_s","empty_km","net_energy_kWh","kWh_per_vehicle_km"):
         diffs=[float(data[right][s][metric])-float(data[left][s][metric]) for s in sorted(expected)]
         mean_diff=sum(diffs)/len(diffs)
+        pct_changes=[]
+        for s in sorted(expected):
+            baseline=float(data[left][s][metric])
+            current=float(data[right][s][metric])
+            if baseline != 0.0:
+                pct_changes.append(100.0*(current-baseline)/baseline)
         sd_diff=statistics.stdev(diffs) if len(diffs)>1 else 0.0
         dz=(mean_diff/sd_diff) if sd_diff>0 else None
         effects[comparison][metric]={
@@ -93,6 +99,9 @@ for comparison,left,right in (
             "worsened_seed_count":sum(d>0 for d in diffs),
             "tied_seed_count":sum(d==0 for d in diffs),
             "paired_standardized_effect_dz":dz,
+            "mean_paired_percent_change":(sum(pct_changes)/len(pct_changes) if pct_changes else None),
+            "median_paired_percent_change":(statistics.median(pct_changes) if pct_changes else None),
+            "percent_change_n":len(pct_changes),
             "direction":"lower_is_better",
         }
 summary["paired_effects"]=effects
