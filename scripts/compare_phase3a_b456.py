@@ -103,10 +103,17 @@ for comparison,left,right in (
             [data[right][s][metric] for s in sorted(expected)],
         )
         effects[comparison][metric]={
-            **stats,
-            "improved_seed_count":stats.pop("improved_count"),
-            "worsened_seed_count":stats.pop("worsened_count"),
-            "tied_seed_count":stats.pop("tied_count"),
+            "mean_difference":stats["mean_difference"],
+            "median_difference":stats["median_difference"],
+            "min_difference":stats["min_difference"],
+            "max_difference":stats["max_difference"],
+            "paired_standardized_effect_dz":stats["paired_standardized_effect_dz"],
+            "mean_paired_percent_change":stats["mean_paired_percent_change"],
+            "median_paired_percent_change":stats["median_paired_percent_change"],
+            "percent_change_n":stats["percent_change_n"],
+            "improved_seed_count":stats["improved_count"],
+            "worsened_seed_count":stats["worsened_count"],
+            "tied_seed_count":stats["tied_count"],
             "direction":"lower_is_better",
         }
 summary["design"]={
