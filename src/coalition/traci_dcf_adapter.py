@@ -67,6 +67,11 @@ class DCFMAPPOTraciDispatcher(MAPPOTraciDispatcher):
                     taxi_a: float(2.0 * (aa - ab)),
                     taxi_b: float(2.0 * (bb - ba)),
                 },
+                "effective_break_even_overhead_s": float(min(
+                    (aa + bb) - (ab + ba),
+                    2.0 * (aa - ab),
+                    2.0 * (bb - ba),
+                )),
                 "coalition_gain_s": float(decision.coalition_gain),
                 "member_gains_s": decision.member_gains,
                 "reason": decision.reason,
