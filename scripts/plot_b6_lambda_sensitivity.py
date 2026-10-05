@@ -44,6 +44,16 @@ def main():
                 row[f"mean_delta_vs_lambda0_{metric}"]=sum(diffs)/len(diffs)
                 row[f"median_delta_vs_lambda0_{metric}"]=statistics.median(diffs)
                 row[f"improved_seeds_vs_lambda0_{metric}"]=sum(d<0 for d in diffs)
+                row[f"worsened_seeds_vs_lambda0_{metric}"]=sum(d>0 for d in diffs)
+                row[f"tied_seeds_vs_lambda0_{metric}"]=sum(d==0 for d in diffs)
+                sd=statistics.stdev(diffs) if len(diffs)>1 else 0.0
+                row[f"paired_effect_dz_vs_lambda0_{metric}"]=(sum(diffs)/len(diffs)/sd if sd>0 else None)
+                pct=[
+                    100.0*(float(arms[lam][s][metric])-float(control[s][metric]))/float(control[s][metric])
+                    for s in SEEDS if float(control[s][metric]) != 0.0
+                ]
+                row[f"mean_paired_percent_change_vs_lambda0_{metric}"]=(sum(pct)/len(pct) if pct else None)
+                row[f"median_paired_percent_change_vs_lambda0_{metric}"]=(statistics.median(pct) if pct else None)
                 for seed,d in zip(SEEDS,diffs):
                     paired.append({
                         "lambda_phi":lam,"demand_seed":seed,"metric":metric,
@@ -93,7 +103,9 @@ def main():
         "table":table,
         "paired_against_lambda_zero":True,
         "heldout_seeds":list(SEEDS),
-        "interpretation":"Paired CRN ablation; lambda=0 is the DCF control without Shapley reward shaping. No grid value is declared globally optimal."
+        "statistical_claim":"descriptive paired multi-seed ablation; no inferential significance test is claimed",
+        "direction":"lower is better for all operational outcome metrics",
+        "interpretation":"Paired CRN ablation; lambda=0 is the DCF control without Shapley reward shaping. Paired dz is descriptive. No grid value is declared globally optimal."
     },indent=2))
     print(json.dumps(table,indent=2))
 
