@@ -31,10 +31,11 @@ if manifests["B4"].get("training_updates_on_heldout") is not False:
     raise SystemExit("B4 manifest does not certify frozen held-out evaluation")
 if manifests["B5"].get("policy_retrained") is not False:
     raise SystemExit("B5 manifest does not certify frozen B4 policy")
+b4_hash=manifests["B4"].get("checkpoint_sha256")
 b5_hash=manifests["B5"].get("policy_sha256")
 b6_hash=manifests["B6"].get("initial_policy_sha256")
-if not b5_hash or not b6_hash or b5_hash != b6_hash:
-    raise SystemExit("B5/B6 B4 checkpoint provenance mismatch")
+if not b4_hash or not b5_hash or not b6_hash or len({b4_hash,b5_hash,b6_hash}) != 1:
+    raise SystemExit("B4/B5/B6 checkpoint provenance mismatch")
 for method,rows in data.items():
     if set(rows)!=expected:
         raise SystemExit(f"{method} held-out seeds mismatch: {set(rows)}")
@@ -74,7 +75,7 @@ summary["design"]={
     "n_heldout":len(expected),
     "statistical_claim":"descriptive paired multi-seed evaluation; inferential tests are not produced here",
     "provenance_verified":True,
-    "shared_b4_checkpoint_sha256":b5_hash,
+    "shared_b4_checkpoint_sha256":b4_hash,
 }
 (out/"summary_b456.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
 print(json.dumps(summary,indent=2))
