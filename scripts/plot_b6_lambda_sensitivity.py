@@ -15,6 +15,13 @@ def load_arm(lam):
     by={int(r["demand_seed"]):r for r in rows}
     if set(by)!=set(SEEDS):
         raise SystemExit(f"incomplete held-out CRN for lambda={lam}: {set(by)}")
+    required={"completed","unresolved","teleports","mean_pickup_wait_s","empty_km","net_energy_kWh","kWh_per_vehicle_km"}
+    for seed,row in by.items():
+        missing=required-set(row)
+        if missing:
+            raise SystemExit(f"lambda={lam} seed={seed} missing metrics: {sorted(missing)}")
+        if int(row["completed"]) != 24 or int(row["unresolved"]) != 0 or int(row["teleports"]) != 0:
+            raise SystemExit(f"lambda={lam} seed={seed} lifecycle QC failed")
     return by
 
 def main():
