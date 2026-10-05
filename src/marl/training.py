@@ -24,16 +24,20 @@ class RewardConfig:
 
 
 def dispatch_reward(access_time_s, assignment_delay_s, config=RewardConfig()):
-    """Negative normalized service cost for one dispatch decision."""
+    """Negative service-time cost in seconds for one dispatch decision.
+
+    Reward normalization is deliberately left to PPO advantage
+    standardization; dividing by the same access+queue total would collapse
+    equal-weight rewards to approximately -1 and destroy learning signal.
+    """
     config.validate()
     if access_time_s < 0 or assignment_delay_s < 0:
         raise ValueError("dispatch times must be non-negative")
-    scale = max(1.0, access_time_s + assignment_delay_s)
     cost = (
-        config.access_time_weight * access_time_s
-        + config.queue_delay_weight * assignment_delay_s
-    ) / scale
-    return -float(cost)
+        config.access_time_weight * float(access_time_s)
+        + config.queue_delay_weight * float(assignment_delay_s)
+    )
+    return -cost
 
 
 def discounted_returns(rewards, gamma=0.99):
@@ -64,5 +68,7 @@ def build_transitions(decisions, rewards, global_states, policy, gamma=0.99):
             old_log_prob=float(decision["log_prob"]),
             advantage=float(reward_return - value),
             return_=float(reward_return),
+            action_mask=np.asarray(decision.get("feasible_mask"), dtype=bool)
+                if decision.get("feasible_mask") is not None else None,
         ))
     return transitions
