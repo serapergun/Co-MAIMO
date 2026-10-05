@@ -1,5 +1,6 @@
 """Create paired B4-B5-B6 held-out comparison from validated CRN outputs."""
-import argparse, csv, json, math, statistics
+import argparse, csv, json
+from src.evaluation.paired_effects import paired_effects
 from pathlib import Path
 
 p=argparse.ArgumentParser()
@@ -87,8 +88,8 @@ for method in ("B4","B5","B6"):
         vals=[data[method][s][metric] for s in sorted(expected)]
         summary[method][metric]={"mean":sum(vals)/len(vals),"min":min(vals),"max":max(vals)}
 # Paired descriptive effect reporting. Lower is better for all four
-# operational metrics. With only five held-out CRN seeds, these are descriptive
-# robustness statistics rather than inferential significance tests.
+# operational metrics. The shared helper keeps B456 and lambda-ablation
+# definitions identical.
 effects={}
 for comparison,left,right in (
     ("B5_minus_B4","B4","B5"),
@@ -97,31 +98,17 @@ for comparison,left,right in (
 ):
     effects[comparison]={}
     for metric in ("mean_pickup_wait_s","empty_km","net_energy_kWh","kWh_per_vehicle_km"):
-        diffs=[float(data[right][s][metric])-float(data[left][s][metric]) for s in sorted(expected)]
-        mean_diff=sum(diffs)/len(diffs)
-        pct_changes=[]
-        for s in sorted(expected):
-            baseline=float(data[left][s][metric])
-            current=float(data[right][s][metric])
-            if baseline != 0.0:
-                pct_changes.append(100.0*(current-baseline)/baseline)
-        sd_diff=statistics.stdev(diffs) if len(diffs)>1 else 0.0
-        dz=(mean_diff/sd_diff) if sd_diff>0 else None
+        stats=paired_effects(
+            [data[left][s][metric] for s in sorted(expected)],
+            [data[right][s][metric] for s in sorted(expected)],
+        )
         effects[comparison][metric]={
-            "mean_difference":mean_diff,
-            "median_difference":statistics.median(diffs),
-            "min_difference":min(diffs),
-            "max_difference":max(diffs),
-            "improved_seed_count":sum(d<0 for d in diffs),
-            "worsened_seed_count":sum(d>0 for d in diffs),
-            "tied_seed_count":sum(d==0 for d in diffs),
-            "paired_standardized_effect_dz":dz,
-            "mean_paired_percent_change":(sum(pct_changes)/len(pct_changes) if pct_changes else None),
-            "median_paired_percent_change":(statistics.median(pct_changes) if pct_changes else None),
-            "percent_change_n":len(pct_changes),
+            **stats,
+            "improved_seed_count":stats.pop("improved_count"),
+            "worsened_seed_count":stats.pop("worsened_count"),
+            "tied_seed_count":stats.pop("tied_count"),
             "direction":"lower_is_better",
         }
-summary["paired_effects"]=effects
 summary["design"]={
     "heldout_seeds":sorted(expected),
     "taxi_count":taxi_count,
