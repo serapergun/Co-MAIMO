@@ -47,6 +47,15 @@ def main():
             run(cfg,out,dispatcher,max_time_s=18000)
             m=validate_episode(out)
             events=dispatcher.coalition_events
+            for event in events:
+                threshold=float(event["effective_break_even_overhead_s"])
+                # evaluate_merge requires strictly positive system gain and
+                # non-negative member gains. Away from the numerical boundary,
+                # the logged threshold must therefore agree with acceptance.
+                if overhead < threshold-1e-9 and not event["accepted"]:
+                    raise RuntimeError("DCF rejected below logged effective break-even overhead")
+                if overhead > threshold+1e-9 and event["accepted"]:
+                    raise RuntimeError("DCF accepted above logged effective break-even overhead")
             m.update({
                 "demand_seed":seed,
                 "coordination_overhead_s":overhead,
