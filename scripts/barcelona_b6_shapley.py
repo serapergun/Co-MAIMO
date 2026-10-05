@@ -11,7 +11,7 @@ from src.marl.training import dispatch_reward, build_transitions
 from src.marl.causal_shapley import causal_b6_rewards
 from src.coalition.traci_dcf_adapter import DCFMAPPOTraciDispatcher
 from src.simulation.traci_runner import run
-from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET
+from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET, N_TAXIS, N_REQUESTS
 
 
 ROOT=Path("artifacts/barcelona_b6_shapley")
@@ -83,7 +83,7 @@ def main():
     if tuple(meta.get("heldout_demand_seeds",())) != tuple(plan.heldout):
         raise SystemExit("B4 checkpoint held-out seeds do not match Phase3A CRN plan")
     policy=load_checkpoint(B4_CHECKPOINT)
-    if policy.action_dim != 8 or policy.obs_dim != 8 or policy.state_dim != 3:
+    if policy.action_dim != N_TAXIS or policy.obs_dim != N_TAXIS or policy.state_dim != 3:
         raise SystemExit("B4 checkpoint dimensions incompatible with B6 protocol")
     b4_checkpoint_hash=checkpoint_sha256(B4_CHECKPOINT)
     history=[]
@@ -187,6 +187,8 @@ def main():
         "training_demand_seeds":list(plan.training),
         "heldout_demand_seeds":list(plan.heldout),
         "heldout_policy_updates":False,
+        "taxi_count":N_TAXIS,
+        "request_count":N_REQUESTS,
         "shapley_scope":"accepted operational DCF events only",
         "shapley_credit_timing":"strictly prior event within the same episode",
         "shapley_credit_memory":"reset for every CRN demand seed",
