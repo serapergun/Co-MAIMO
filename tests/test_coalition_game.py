@@ -114,3 +114,25 @@ def test_phase3a_exporter_rejects_contaminated_run():
         assert False, "teleport-contaminated coalition run must be rejected"
     except ValueError:
         pass
+
+
+def test_phase3a_aggregator_requires_all_coalitions():
+    from scripts.aggregate_phase3a_counterfactuals import aggregate_records
+
+    players = ("A", "B", "C")
+    coalitions = [
+        ["A"], ["B"], ["C"],
+        ["A", "B"], ["A", "C"], ["B", "C"],
+        ["A", "B", "C"],
+    ]
+    records = [{"coalition": s, "marker": i} for i, s in enumerate(coalitions)]
+    dataset = aggregate_records(players, records)
+    assert dataset["complete"] is True
+    assert dataset["coalition_count"] == 7
+    assert dataset["expected_coalition_count"] == 7
+
+    try:
+        aggregate_records(players, records[:-1])
+        assert False, "incomplete coalition set must be rejected"
+    except ValueError:
+        pass
