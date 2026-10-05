@@ -33,11 +33,17 @@ def episode_training_batch(dispatcher, request_qc_path, policy, gamma=0.99):
         rewards.append(dispatch_reward(access_time, assignment_delay))
         # Centralized critic state: normalized system-level service context.
         # These quantities are observed from the completed episode, not guessed.
-        states.append(np.asarray([
+        state = np.asarray([
             assignment_delay / max(1.0, assignment_delay + access_time),
             access_time / max(1.0, assignment_delay + access_time),
             float(len(qc.get("final_active_reservations", []))),
-        ], dtype=float))
+        ], dtype=float)
+        if state.shape != (policy.state_dim,):
+            raise ValueError(
+                f"episode critic state has dimension {len(state)}; "
+                f"policy expects {policy.state_dim}"
+            )
+        states.append(state)
         decisions.append(decision)
 
     return build_transitions(decisions, rewards, states, policy, gamma=gamma)
