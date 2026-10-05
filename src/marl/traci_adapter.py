@@ -84,6 +84,20 @@ class MAPPOTraciDispatcher:
             vehicle_id = fleet[action]
             assignments.append((vehicle_id, [reservation.id]))
             used.add(vehicle_id)
+            feasible_count = int(mask.sum())
+            best_access = min(
+                [float(_route_time(traci, fleet[i], reservation)) for i in range(len(fleet)) if mask[i]],
+                default=0.0,
+            )
+            access_scale = max(
+                [float(_route_time(traci, fleet[i], reservation)) for i in range(len(fleet)) if mask[i]],
+                default=1.0,
+            )
+            global_state = [
+                float(len(idle_set - used)) / float(len(fleet)),
+                float(feasible_count) / float(len(fleet)),
+                float(best_access) / max(1.0, float(access_scale)),
+            ]
             self.decisions.append({
                 "time": float(now),
                 "reservation_id": str(reservation.id),
@@ -94,5 +108,6 @@ class MAPPOTraciDispatcher:
                 "selected_access_time_s": float(_route_time(traci, vehicle_id, reservation)),
 
                 "feasible_mask": mask.astype(int).tolist(),
+                "global_state": global_state,
             })
         return assignments
