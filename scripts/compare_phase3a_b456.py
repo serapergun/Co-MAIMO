@@ -23,6 +23,16 @@ manifests={
     "B6":json.loads(Path(a.b6_manifest).read_text()),
 }
 expected={9101,9102,9103,9104,9105}
+design_counts={
+    method:(manifests[method].get("taxi_count"),manifests[method].get("request_count"))
+    for method in ("B4","B5","B6")
+}
+if len(set(design_counts.values())) != 1 or None in design_counts["B4"]:
+    raise SystemExit(f"B4/B5/B6 experiment dimension mismatch: {design_counts}")
+taxi_count,request_count=design_counts["B4"]
+taxi_count=int(taxi_count); request_count=int(request_count)
+if taxi_count <= 0 or request_count <= 0:
+    raise SystemExit("invalid experiment dimensions in manifests")
 for method in ("B4","B5","B6"):
     seeds=set(map(int,manifests[method].get("heldout_demand_seeds",[])))
     if seeds != expected:
@@ -47,7 +57,7 @@ for method,rows in data.items():
     if set(rows)!=expected:
         raise SystemExit(f"{method} held-out seeds mismatch: {set(rows)}")
     for seed,r in rows.items():
-        if r["completed"]!=24 or r["unresolved"]!=0 or r["teleports"]!=0:
+        if int(r["completed"])!=request_count or int(r["unresolved"])!=0 or int(r["teleports"])!=0:
             raise SystemExit(f"{method} lifecycle QC failed for {seed}: {r}")
 
 paired=[]
@@ -114,6 +124,8 @@ for comparison,left,right in (
 summary["paired_effects"]=effects
 summary["design"]={
     "heldout_seeds":sorted(expected),
+    "taxi_count":taxi_count,
+    "request_count":request_count,
     "paired_crn":True,
     "n_heldout":len(expected),
     "statistical_claim":"descriptive paired multi-seed evaluation; inferential tests are not produced here",
