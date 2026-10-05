@@ -136,3 +136,41 @@ def test_phase3a_aggregator_requires_all_coalitions():
         assert False, "incomplete coalition set must be rejected"
     except ValueError:
         pass
+
+
+def test_phase3a_analysis_runner_end_to_end():
+    from scripts.analyze_phase3a_game import analyze_dataset
+    from src.coalition.operational_valuation import OperationalEvidence
+
+    players = ["A", "B"]
+    def rec(s, scale):
+        return {
+            "coalition": s,
+            "completed": 10,
+            "requests": 10,
+            "mean_pickup_wait_s": 100.0 * scale,
+            "empty_km": 20.0 * scale,
+            "net_energy_kWh": 10.0 * scale,
+        }
+    dataset = {
+        "players": players,
+        "coalition_count": 3,
+        "expected_coalition_count": 3,
+        "complete": True,
+        "records": [
+            rec(["A"], 0.8),
+            rec(["B"], 0.8),
+            rec(["A", "B"], 0.5),
+        ],
+    }
+    ref = OperationalEvidence(10, 10, 100.0, 20.0, 10.0)
+    result = analyze_dataset(dataset, ref)
+    assert abs(result["characteristic_values"]["{A}"] - 0.2) < 1e-12
+    assert abs(result["characteristic_values"]["{B}"] - 0.2) < 1e-12
+    assert abs(result["characteristic_values"]["{A,B}"] - 0.5) < 1e-12
+    assert abs(result["shapley"]["A"] - 0.25) < 1e-12
+    assert abs(result["shapley"]["B"] - 0.25) < 1e-12
+    assert result["shapley_qc"]["efficient"]
+    assert result["nucleolus"] is not None
+    assert abs(result["nucleolus"]["A"] - 0.25) < 1e-9
+    assert abs(result["nucleolus"]["B"] - 0.25) < 1e-9
