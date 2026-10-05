@@ -130,3 +130,38 @@ def test_b6_shapley_feedback_changes_only_coalition_event_rewards():
     assert shaped[0] != base[0]
     assert shaped[1] != base[1]
     assert shaped[2] == base[2]
+
+
+def test_masked_ppo_old_new_logprob_consistency_and_reward_signal():
+    import numpy as np
+    from src.marl.mappo import LinearMAPPO, Transition
+    from src.marl.training import dispatch_reward
+
+    policy=LinearMAPPO(obs_dim=3,state_dim=2,action_dim=3,seed=17)
+    obs=np.asarray([0.2,0.7,1.0])
+    mask=np.asarray([True,False,True])
+    probs=policy.masked_action_probs(obs,mask)
+    action=2
+    old_log=float(np.log(probs[action]))
+    # Unchanged policy must reproduce the exact masked likelihood.
+    assert abs(float(np.log(policy.masked_action_probs(obs,mask)[action]))-old_log)<1e-12
+
+    before=policy.actor_w.copy()
+    t=Transition(
+        observation=obs,
+        global_state=np.asarray([0.4,0.6]),
+        action=action,
+        old_log_prob=old_log,
+        advantage=2.0,
+        return_=1.0,
+        action_mask=mask,
+    )
+    policy.update([t],actor_lr=0.01,critic_lr=0.0)
+    # Masked-out action receives no actor gradient.
+    assert np.allclose(policy.actor_w[1],before[1])
+    assert not np.allclose(policy.actor_w[0],before[0])
+    assert not np.allclose(policy.actor_w[2],before[2])
+
+    assert dispatch_reward(60.0,20.0) == -80.0
+    assert dispatch_reward(600.0,200.0) == -800.0
+    assert dispatch_reward(600.0,200.0) < dispatch_reward(60.0,20.0)
