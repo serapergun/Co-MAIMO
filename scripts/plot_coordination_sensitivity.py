@@ -30,7 +30,11 @@ def main():
             path=ROOT/f"overhead_{int(overhead)}"/f"seed_{seed}"/"coalition_events.json"
             events.extend(json.loads(path.read_text()))
         thresholds=[float(e["effective_break_even_overhead_s"]) for e in events]
-        all_thresholds.extend(thresholds)
+        # The same paired demand is replayed at every overhead. Use only the
+        # zero-overhead proposal set for the threshold distribution to avoid
+        # quadruple-counting identical baseline proposals.
+        if overhead == 0.0:
+            all_thresholds.extend(thresholds)
         table.append({
             "coordination_overhead_s":overhead,
             "mean_acceptance_rate":mean([float(r["acceptance_rate"]) for r in subset]),
