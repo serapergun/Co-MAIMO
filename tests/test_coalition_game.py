@@ -174,3 +174,19 @@ def test_phase3a_analysis_runner_end_to_end():
     assert result["nucleolus"] is not None
     assert abs(result["nucleolus"]["A"] - 0.25) < 1e-9
     assert abs(result["nucleolus"]["B"] - 0.25) < 1e-9
+
+
+def test_phase3a_capability_dependencies_and_benchmarks():
+    from src.coalition.capabilities import benchmark_mapping, validate_capability_coalition
+
+    assert benchmark_mapping(()) == "B1-B3 classical baseline family"
+    assert benchmark_mapping(("marl",)) == "B4"
+    assert benchmark_mapping(("marl", "dcf")) == "B5"
+    assert benchmark_mapping(("marl", "dcf", "shapley_feedback")) == "B6"
+
+    for invalid in [("dcf",), ("shapley_feedback",), ("marl", "shapley_feedback")]:
+        try:
+            validate_capability_coalition(invalid)
+            assert False, f"dependency-invalid coalition accepted: {invalid}"
+        except ValueError:
+            pass
