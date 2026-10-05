@@ -42,6 +42,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     previous_distance_m = {}
     request_first_seen_s = {}
     request_assigned_s = {}
+    request_pickup_s = {}
     horizon_exceeded = False
     traci.start(cmd)
     try:
@@ -55,6 +56,10 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
             teleports.update(traci.simulation.getStartingTeleportIDList())
             new_reservations = traci.person.getTaxiReservations(1)
             active_reservations = traci.person.getTaxiReservations(0)
+            # SUMO reservation state 8 denotes picked-up/on-board. Record the
+            # first observed transition per reservation as the actual pickup time.
+            for reservation in traci.person.getTaxiReservations(8):
+                request_pickup_s.setdefault(reservation.id, now)
             # Retry active reservations that have never been assigned. A request
             # may surface when no feasible idle taxi route exists, so onlyNew=1
             # alone can strand it forever.
@@ -130,10 +135,21 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
         },
         "request_first_seen_s": dict(sorted(request_first_seen_s.items())),
         "request_assigned_s": dict(sorted(request_assigned_s.items())),
+        "request_pickup_s": dict(sorted(request_pickup_s.items())),
         "assignment_wait_s": {
             reservation_id: round(request_assigned_s[reservation_id] - first_seen, 6)
             for reservation_id, first_seen in sorted(request_first_seen_s.items())
             if reservation_id in request_assigned_s
+        },
+        "pickup_wait_s": {
+            reservation_id: round(request_pickup_s[reservation_id] - first_seen, 6)
+            for reservation_id, first_seen in sorted(request_first_seen_s.items())
+            if reservation_id in request_pickup_s
+        },
+        "post_assignment_pickup_s": {
+            reservation_id: round(request_pickup_s[reservation_id] - assigned, 6)
+            for reservation_id, assigned in sorted(request_assigned_s.items())
+            if reservation_id in request_pickup_s
         },
     }
     (out / "run_command.json").write_text(json.dumps(cmd, indent=2), encoding="utf-8")
