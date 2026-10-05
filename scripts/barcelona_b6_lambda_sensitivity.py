@@ -113,6 +113,8 @@ def main():
         total_on=sum(int(r["on_policy_transition_count"]) for r in history)
         total_credit=sum(int(r["prior_credit_transition_count"]) for r in history)
         total_nonzero=sum(int(r["nonzero_shaping_transition_count"]) for r in history)
+        if lam == 0.0 and total_nonzero != 0:
+            raise RuntimeError("lambda=0 control produced nonzero Shapley reward shaping")
         summary={
             "lambda_phi":lam,
             "initial_policy_sha256":b4_hash,
