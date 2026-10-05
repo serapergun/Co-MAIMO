@@ -19,3 +19,14 @@ def test_perfect_validation():
                       {"time_bin":2,"origin_district":"B","destination_district":"A"}])
     assert validate_od(od,req)["od_distribution_mae"]==0
     assert validate_temporal(od,req)["temporal_distribution_mae"]==0
+
+
+def test_phase3a_crn_is_paired_and_leakage_free():
+    from src.evaluation.phase3a_crn import DEFAULT_PHASE3A_SEEDS, paired_evaluation_rows
+    plan = DEFAULT_PHASE3A_SEEDS.validate()
+    assert set(plan.training).isdisjoint(plan.heldout)
+    rows = paired_evaluation_rows()
+    assert len(rows) == len(plan.heldout) * 3
+    for seed in plan.heldout:
+        methods = {r["method"] for r in rows if r["demand_seed"] == seed}
+        assert methods == {"B4", "B5", "B6"}
