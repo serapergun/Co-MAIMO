@@ -188,3 +188,35 @@ def test_phase3a_capability_dependencies_and_benchmarks():
         import pytest
         with pytest.raises(ValueError):
             validate_capability_coalition(invalid)
+
+
+def test_dcf_merge_requires_system_and_member_gain():
+    from src.coalition.dcf import CoalitionProposal, evaluate_merge, split_required
+
+    good = CoalitionProposal(
+        members=("taxi0", "taxi1"),
+        independent_cost=10.0,
+        cooperative_cost=7.0,
+        coordination_cost=1.0,
+        member_independent_costs={"taxi0": 5.0, "taxi1": 5.0},
+        member_cooperative_costs={"taxi0": 3.5, "taxi1": 3.5},
+        member_coordination_costs={"taxi0": 0.5, "taxi1": 0.5},
+    )
+    decision = evaluate_merge(good)
+    assert decision.accepted
+    assert abs(decision.coalition_gain - 2.0) < 1e-12
+    assert not split_required(good)
+
+    unfair = CoalitionProposal(
+        members=("taxi0", "taxi1"),
+        independent_cost=10.0,
+        cooperative_cost=7.0,
+        coordination_cost=1.0,
+        member_independent_costs={"taxi0": 5.0, "taxi1": 5.0},
+        member_cooperative_costs={"taxi0": 5.5, "taxi1": 1.5},
+        member_coordination_costs={"taxi0": 0.1, "taxi1": 0.9},
+    )
+    rejected = evaluate_merge(unfair)
+    assert not rejected.accepted
+    assert rejected.reason == "individual_rationality_violation"
+    assert split_required(unfair)
