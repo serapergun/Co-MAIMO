@@ -1,0 +1,77 @@
+name: barcelona-b5-dcf
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-b5-dcf.yml"
+      - "scripts/barcelona_b4_mappo.py"
+      - "scripts/barcelona_b5_dcf.py"
+      - "src/marl/**"
+      - "src/coalition/dcf.py"
+      - "src/coalition/traci_dcf_adapter.py"
+      - "src/data/barcelona_crn.py"
+      - "src/evaluation/phase3a_crn.py"
+jobs:
+  b5-dcf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Build fixed-snapshot Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Train B4 and freeze policy
+        run: PYTHONPATH=. python scripts/barcelona_b4_mappo.py
+      - name: Evaluate B5 DCF on identical held-out CRN demand
+        run: PYTHONPATH=. python scripts/barcelona_b5_dcf.py
+      - name: Validate paired B4-B5 evidence
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json
+          from pathlib import Path
+          b4=json.loads(Path("artifacts/barcelona_b4_mappo/heldout_metrics.json").read_text())
+          b5=json.loads(Path("artifacts/barcelona_b5_dcf/heldout_metrics.json").read_text())
+          x={int(r["demand_seed"]):r for r in b4}
+          y={int(r["demand_seed"]):r for r in b5}
+          expected={9101,9102,9103,9104,9105}
+          if set(x)!=expected or set(y)!=expected:
+              raise SystemExit(f"paired seed mismatch B4={set(x)} B5={set(y)}")
+          rows=[]
+          for seed in sorted(expected):
+              a,b=x[seed],y[seed]
+              for label,r in (("B4",a),("B5",b)):
+                  if r["completed"]!=24 or r["unresolved"]!=0 or r["teleports"]!=0:
+                      raise SystemExit(f"{label} lifecycle QC failed seed {seed}: {r}")
+              rows.append({
+                  "demand_seed":seed,
+                  "B4_mean_pickup_wait_s":a["mean_pickup_wait_s"],
+                  "B5_mean_pickup_wait_s":b["mean_pickup_wait_s"],
+                  "delta_pickup_wait_s":b["mean_pickup_wait_s"]-a["mean_pickup_wait_s"],
+                  "B4_empty_km":a["empty_km"],
+                  "B5_empty_km":b["empty_km"],
+                  "delta_empty_km":b["empty_km"]-a["empty_km"],
+                  "B4_net_energy_kWh":a["net_energy_kWh"],
+                  "B5_net_energy_kWh":b["net_energy_kWh"],
+                  "delta_net_energy_kWh":b["net_energy_kWh"]-a["net_energy_kWh"],
+                  "coalition_events":b["coalition_events"],
+                  "accepted_coalitions":b["accepted_coalitions"],
+              })
+          out=Path("artifacts/barcelona_b5_dcf/paired_b4_b5.json")
+          out.write_text(json.dumps(rows,indent=2))
+          print(json.dumps(rows,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b5-dcf
+          path: |
+            artifacts/barcelona_b4_mappo/
+            artifacts/barcelona_b5_dcf/
