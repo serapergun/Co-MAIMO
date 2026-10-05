@@ -30,3 +30,19 @@ def test_phase3a_crn_is_paired_and_leakage_free():
     for seed in plan.heldout:
         methods = {r["method"] for r in rows if r["demand_seed"] == seed}
         assert methods == {"B4", "B5", "B6"}
+
+
+def test_paired_effects_direction_and_zero_denominator():
+    from src.evaluation.paired_effects import paired_effects
+    r=paired_effects([10,20,0],[8,18,1])
+    assert r["improved_count"]==2
+    assert r["worsened_count"]==1
+    assert r["tied_count"]==0
+    assert r["percent_change_n"]==2
+    assert r["mean_difference"]==-1.0
+
+def test_paired_effects_rejects_unpaired_samples():
+    import pytest
+    from src.evaluation.paired_effects import paired_effects
+    with pytest.raises(ValueError):
+        paired_effects([1,2],[1])
