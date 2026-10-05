@@ -71,12 +71,22 @@ m=mmpevem_emission_energy(root/"emissions.xml")
 occ=sum(q["occupied_distance_m_by_taxi"].values())/1000
 empty=sum(q["empty_distance_m_by_taxi"].values())/1000
 wait=list(q["assignment_wait_s"].values())
+pickup_wait=list(q["pickup_wait_s"].values())
+post_assignment_pickup=list(q["post_assignment_pickup_s"].values())
+if len(pickup_wait) != a.requests or len(post_assignment_pickup) != a.requests:
+    raise RuntimeError(f"Pickup telemetry incomplete: {len(pickup_wait)}/{a.requests} requests")
+for rid, pickup in q["request_pickup_s"].items():
+    first=q["request_first_seen_s"].get(rid); assigned=q["request_assigned_s"].get(rid)
+    if first is None or assigned is None or not (first <= assigned <= pickup):
+        raise RuntimeError(f"Pickup timestamp ordering failed for {rid}")
 summary={
  "taxis":a.taxis,"requests":a.requests,"assigned":len(q["assigned_reservations"]),
  "completed":a.requests-len(q["final_active_reservations"]),"unresolved":len(q["final_active_reservations"]),
  "teleports":len(q["teleported_vehicle_ids"]),"horizon_exceeded":q["horizon_exceeded"],
  "final_simulation_time_s":q["final_simulation_time_s"],
  "mean_assignment_wait_s":sum(wait)/len(wait) if wait else None,"max_assignment_wait_s":max(wait) if wait else None,
+ "mean_pickup_wait_s":sum(pickup_wait)/len(pickup_wait) if pickup_wait else None,"max_pickup_wait_s":max(pickup_wait) if pickup_wait else None,
+ "mean_post_assignment_pickup_s":sum(post_assignment_pickup)/len(post_assignment_pickup) if post_assignment_pickup else None,
  "occupied_km":occ,"empty_km":empty,"empty_km_share":empty/(empty+occ) if empty+occ else None,
  "fleet_vehicle_km":fleet_km,**m}
 summary["kWh_per_vehicle_km"]=m["net_energy_kWh"]/fleet_km if fleet_km else None
