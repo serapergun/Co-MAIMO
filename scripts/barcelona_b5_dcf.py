@@ -11,7 +11,7 @@ from src.simulation.traci_runner import run
 
 # Reuse B4 scenario construction and physical validation verbatim so B4/B5
 # differ only by the coalition mechanism.
-from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET, N_TAXIS
+from scripts.barcelona_b4_mappo import write_scenario, validate_episode, NET, N_TAXIS, N_REQUESTS
 
 
 ROOT = Path("artifacts/barcelona_b5_dcf")
@@ -75,6 +75,8 @@ def main():
         "policy_retrained": False,
         "heldout_demand_seeds": list(plan.heldout),
         "coordination_cost_s": 0.0,
+        "taxi_count": N_TAXIS,
+        "request_count": N_REQUESTS,
         "comparison": "paired against B4 on identical demand and policy-sampling seeds",
     }, indent=2), encoding="utf-8")
     print(json.dumps(heldout, indent=2))
