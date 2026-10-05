@@ -12,3 +12,17 @@ def test_joint_od_sampling_preserves_pairs():
 
 def test_expected_district_set_is_ten():
     assert len(EXPECTED_BCN_DISTRICTS)==10
+
+
+def test_seeded_barcelona_demand_is_reproducible_and_seed_sensitive():
+    from src.data.barcelona_crn import seeded_demand
+    pairs = [(f"o{i}", f"d{i}") for i in range(20)]
+    a = seeded_demand(pairs, n_requests=24, seed=9101)
+    b = seeded_demand(pairs, n_requests=24, seed=9101)
+    c = seeded_demand(pairs, n_requests=24, seed=9102)
+    assert a == b
+    assert a != c
+    assert len(a) == 24
+    assert {r["depart_s"] for r in a[:12]} == {10}
+    assert {r["depart_s"] for r in a[12:]} == {1810}
+    assert len({(r["origin_edge"], r["destination_edge"]) for r in a[:12]}) == 12
