@@ -31,13 +31,11 @@ def episode_training_batch(dispatcher, request_qc_path, policy, gamma=0.99):
             raise ValueError(f"invalid lifecycle timestamp ordering for reservation {rid}")
 
         rewards.append(dispatch_reward(access_time, assignment_delay))
-        # Centralized critic state: normalized system-level service context.
-        # These quantities are observed from the completed episode, not guessed.
-        state = np.asarray([
-            assignment_delay / max(1.0, assignment_delay + access_time),
-            access_time / max(1.0, assignment_delay + access_time),
-            float(len(qc.get("final_active_reservations", []))),
-        ], dtype=float)
+        # Critic state must be the snapshot observed at decision time.
+        # Lifecycle outcomes above are used only as delayed reward.
+        if "global_state" not in decision:
+            raise ValueError(f"missing decision-time critic state for reservation {rid}")
+        state = np.asarray(decision["global_state"], dtype=float)
         if state.shape != (policy.state_dim,):
             raise ValueError(
                 f"episode critic state has dimension {len(state)}; "
