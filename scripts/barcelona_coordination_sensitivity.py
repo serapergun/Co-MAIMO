@@ -100,6 +100,9 @@ def main():
         "policy_retrained":False,
         "policy_sha256":b4_hash,
         "paired_crn":True,
+        "break_even_reference_overhead_s":0.0,
+        "break_even_population":"proposal events observed on zero-overhead reference trajectories",
+        "proposal_population_note":"dynamic DCF decisions may cause later proposal sets to differ across overhead arms",
     },indent=2))
     print(json.dumps(summary,indent=2))
 
