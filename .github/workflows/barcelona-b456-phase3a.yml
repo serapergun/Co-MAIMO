@@ -13,6 +13,7 @@ on:
       - "scripts/barcelona_coordination_sensitivity.py"
       - "scripts/plot_coordination_sensitivity.py"
       - "scripts/compare_phase3a_b456.py"
+      - "scripts/validate_phase3a_artifacts.py"
       - "src/marl/**"
       - "src/coalition/**"
       - "src/data/barcelona_crn.py"
@@ -33,7 +34,7 @@ jobs:
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
       - name: Fail-fast MAPPO and coalition regression gate
         run: |
-          python -m compileall -q src/marl src/coalition src/evaluation scripts/barcelona_b4_mappo.py scripts/barcelona_b5_dcf.py scripts/barcelona_b6_shapley.py scripts/barcelona_b6_lambda_sensitivity.py scripts/plot_b6_lambda_sensitivity.py scripts/barcelona_coordination_sensitivity.py scripts/plot_coordination_sensitivity.py scripts/compare_phase3a_b456.py
+          python -m compileall -q src/marl src/coalition src/evaluation scripts/barcelona_b4_mappo.py scripts/barcelona_b5_dcf.py scripts/barcelona_b6_shapley.py scripts/barcelona_b6_lambda_sensitivity.py scripts/plot_b6_lambda_sensitivity.py scripts/barcelona_coordination_sensitivity.py scripts/plot_coordination_sensitivity.py scripts/compare_phase3a_b456.py scripts/validate_phase3a_artifacts.py
           PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py
       - name: Build fixed Barcelona network
         run: python scripts/build_barcelona_network.py
@@ -53,6 +54,8 @@ jobs:
         run: PYTHONPATH=. python scripts/plot_coordination_sensitivity.py
       - name: Build paired B4-B5-B6 artifact
         run: PYTHONPATH=. python scripts/compare_phase3a_b456.py
+      - name: Validate complete Phase3A artifact set
+        run: PYTHONPATH=. python scripts/validate_phase3a_artifacts.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
