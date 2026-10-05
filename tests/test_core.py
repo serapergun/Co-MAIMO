@@ -165,3 +165,15 @@ def test_masked_ppo_old_new_logprob_consistency_and_reward_signal():
     assert dispatch_reward(60.0,20.0) == -80.0
     assert dispatch_reward(600.0,200.0) == -800.0
     assert dispatch_reward(600.0,200.0) < dispatch_reward(60.0,20.0)
+
+
+def test_shapley_reward_modulation_is_dimensionally_consistent():
+    from src.marl.reward import cooperative_reward
+    base=-100.0
+    equal=cooperative_reward(base,coalition_event=True,normalized_shapley=0.5,lambda_phi=0.2)
+    high=cooperative_reward(base,coalition_event=True,normalized_shapley=0.75,lambda_phi=0.2)
+    low=cooperative_reward(base,coalition_event=True,normalized_shapley=0.25,lambda_phi=0.2)
+    assert equal == base
+    assert high == -95.0
+    assert low == -105.0
+    assert cooperative_reward(base,coalition_event=False,normalized_shapley=1.0,lambda_phi=0.2) == base
