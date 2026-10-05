@@ -30,9 +30,10 @@ def main():
             path=ROOT/f"overhead_{int(overhead)}"/f"seed_{seed}"/"coalition_events.json"
             events.extend(json.loads(path.read_text()))
         thresholds=[float(e["effective_break_even_overhead_s"]) for e in events]
-        # The same paired demand is replayed at every overhead. Use only the
-        # zero-overhead proposal set for the threshold distribution to avoid
-        # quadruple-counting identical baseline proposals.
+        # DCF decisions can change later vehicle states and therefore later proposal
+        # sets across overhead arms. Define the break-even distribution on the
+        # zero-overhead reference trajectories rather than pooling endogenous,
+        # non-comparable proposal populations across arms.
         if overhead == 0.0:
             all_thresholds.extend(thresholds)
         table.append({
@@ -83,7 +84,8 @@ def main():
     (OUT/"publication_summary.json").write_text(json.dumps({
         "table":table,
         "break_even_proposal_count":len(all_thresholds),
-        "interpretation":"Controlled overhead sensitivity; overhead values are scenarios, while break-even thresholds are derived from SUMO route-time counterfactuals."
+        "break_even_reference_overhead_s":0.0,
+        "interpretation":"Controlled overhead sensitivity; overhead values are scenarios, not measured latency. Break-even thresholds are derived from SUMO route-time counterfactuals on the zero-overhead reference trajectories; proposal populations are not assumed identical across overhead arms."
     },indent=2))
     print(json.dumps(table,indent=2))
 
