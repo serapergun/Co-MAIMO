@@ -116,6 +116,7 @@ for comparison,left,right in (
             "tied_seed_count":stats["tied_count"],
             "direction":"lower_is_better",
         }
+summary["paired_effects"]=effects
 summary["design"]={
     "heldout_seeds":sorted(expected),
     "taxi_count":taxi_count,
