@@ -5,6 +5,7 @@ on:
     branches: [develop]
     paths:
       - ".github/workflows/barcelona-b456-phase3a.yml"
+      - "scripts/build_barcelona_network.py"
       - "scripts/barcelona_b4_mappo.py"
       - "scripts/barcelona_b5_dcf.py"
       - "scripts/barcelona_b6_shapley.py"
@@ -18,6 +19,7 @@ on:
       - "src/coalition/**"
       - "src/data/barcelona_crn.py"
       - "src/evaluation/**"
+      - "src/network/qc_network.py"
 jobs:
   phase3a:
     runs-on: ubuntu-latest
@@ -34,10 +36,10 @@ jobs:
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
       - name: Fail-fast MAPPO and coalition regression gate
         run: |
-          python -m compileall -q src/marl src/coalition src/evaluation scripts/barcelona_b4_mappo.py scripts/barcelona_b5_dcf.py scripts/barcelona_b6_shapley.py scripts/barcelona_b6_lambda_sensitivity.py scripts/plot_b6_lambda_sensitivity.py scripts/barcelona_coordination_sensitivity.py scripts/plot_coordination_sensitivity.py scripts/compare_phase3a_b456.py scripts/validate_phase3a_artifacts.py
+          python -m compileall -q src/marl src/coalition src/evaluation src/network/qc_network.py scripts/build_barcelona_network.py scripts/barcelona_b4_mappo.py scripts/barcelona_b5_dcf.py scripts/barcelona_b6_shapley.py scripts/barcelona_b6_lambda_sensitivity.py scripts/plot_b6_lambda_sensitivity.py scripts/barcelona_coordination_sensitivity.py scripts/plot_coordination_sensitivity.py scripts/compare_phase3a_b456.py scripts/validate_phase3a_artifacts.py
           PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py
-      - name: Build fixed Barcelona network
-        run: python scripts/build_barcelona_network.py
+      - name: Build and enforce fixed Barcelona network QC
+        run: PYTHONPATH=. python scripts/build_barcelona_network.py
       - name: Train B4 and evaluate held-out CRN
         run: PYTHONPATH=. python scripts/barcelona_b4_mappo.py
       - name: Evaluate B5 on frozen B4 policy
@@ -61,6 +63,8 @@ jobs:
         with:
           name: barcelona-b456-phase3a
           path: |
+            artifacts/barcelona_network/network_manifest.json
+            artifacts/barcelona_network/network_qc.json
             artifacts/barcelona_b4_mappo/
             artifacts/barcelona_b5_dcf/
             artifacts/barcelona_b6_shapley/
