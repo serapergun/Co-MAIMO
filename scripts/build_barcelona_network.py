@@ -1,5 +1,11 @@
 from pathlib import Path
-import json, shutil, subprocess, urllib.request
+import json, shutil, subprocess, sys, urllib.request
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.network.qc_network import write_report
 
 SNAPSHOT_URL = "https://download.geofabrik.de/europe/spain/cataluna-240101.osm.pbf"
 # Barcelona municipality envelope used only for extraction; district polygon QC is a later gate.
@@ -12,6 +18,7 @@ clip = root / "barcelona_bbox.osm.pbf"
 osm = root / "barcelona_bbox.osm"
 net = root / "barcelona.net.xml"
 manifest = root / "network_manifest.json"
+qc_report = root / "network_qc.json"
 
 for exe in ("osmium", "netconvert"):
     if not shutil.which(exe):
@@ -41,4 +48,13 @@ manifest.write_text(json.dumps({
     "final_municipal_boundary_gate": "pending district-polygon clipping/validation",
     "netconvert_command": cmd,
 }, indent=2), encoding="utf-8")
+
+qc = write_report(net, qc_report)
+if not qc["scc_gate_pass"]:
+    raise RuntimeError(
+        "Barcelona network QC gate failed: "
+        f"largest_scc_share={qc['largest_scc_share']:.6f}; "
+        f"required>={qc['scc_acceptance_threshold']:.2f}"
+    )
+
 print(net)
