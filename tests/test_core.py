@@ -23,7 +23,7 @@ def test_cce_sign():
 
 def test_event_only_shapley_reward():
     assert cooperative_reward(10, coalition_event=False, normalized_shapley=99, lambda_phi=.5) == 10
-    assert cooperative_reward(10, coalition_event=True, normalized_shapley=6, lambda_phi=.5) == 8
+    assert cooperative_reward(10, coalition_event=True, normalized_shapley=.6, lambda_phi=.5) == 8
 
 
 def test_linear_mappo_action_and_update():
