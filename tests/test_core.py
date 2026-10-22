@@ -83,6 +83,24 @@ def test_mappo_masked_action_never_selects_infeasible_taxi():
     assert log_prob is None
 
 
+def test_mappo_dispatcher_skips_route_queries_when_no_taxi_is_idle():
+    from src.marl.mappo import LinearMAPPO
+    from src.marl.traci_adapter import MAPPOTraciDispatcher
+
+    class VehicleAPI:
+        def getTaxiFleet(self, state):
+            assert state == 0
+            return []
+
+    class Traci:
+        vehicle = VehicleAPI()
+
+    policy = LinearMAPPO(obs_dim=2, state_dim=3, action_dim=2, seed=1)
+    dispatcher = MAPPOTraciDispatcher(policy, seed=2)
+    assert dispatcher(Traci(), [object()], ["taxi0", "taxi1"], 10.0) == []
+    assert dispatcher.decisions == []
+
+
 def test_mappo_training_trajectory_uses_discounted_service_returns():
     import numpy as np
     from src.marl.mappo import LinearMAPPO
