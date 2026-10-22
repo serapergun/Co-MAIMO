@@ -24,11 +24,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install eclipse-sumo==1.27.1 sumolib==1.27.1
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
-      - name: Build fixed-snapshot Barcelona network
-        run: python scripts/build_barcelona_network.py
-      - name: Run structural network QC
-        run: PYTHONPATH=. python -c "from src.network.qc_network import write_report; print(write_report('artifacts/barcelona_network/barcelona.net.xml','artifacts/barcelona_network/network_qc.json'))"
+      - name: Build and enforce fixed-snapshot Barcelona network QC
+        run: PYTHONPATH=. python scripts/build_barcelona_network.py
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: barcelona-network-preflight
           path: |
