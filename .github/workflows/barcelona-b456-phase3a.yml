@@ -5,6 +5,7 @@ on:
     branches: [develop]
     paths:
       - ".github/workflows/barcelona-b456-phase3a.yml"
+      - "requirements.txt"
       - "scripts/build_barcelona_network.py"
       - "scripts/barcelona_b4_mappo.py"
       - "scripts/barcelona_b5_dcf.py"
@@ -32,7 +33,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y osmium-tool
-          python -m pip install numpy matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          python -m pip install -r requirements.txt eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
       - name: Fail-fast MAPPO and coalition regression gate
         run: |
@@ -50,6 +51,8 @@ jobs:
         run: PYTHONPATH=. python scripts/barcelona_b6_lambda_sensitivity.py
       - name: Build B6 lambda sensitivity publication artifacts
         run: PYTHONPATH=. python scripts/plot_b6_lambda_sensitivity.py
+      - name: Evaluate DCF coordination-overhead sensitivity
+        run: PYTHONPATH=. python scripts/barcelona_coordination_sensitivity.py
       - name: Evaluate DCF coordination-overhead sensitivity
         run: PYTHONPATH=. python scripts/barcelona_coordination_sensitivity.py
       - name: Build coordination sensitivity publication artifacts
