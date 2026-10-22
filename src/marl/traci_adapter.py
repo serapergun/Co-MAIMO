@@ -68,6 +68,12 @@ class MAPPOTraciDispatcher:
             raise ValueError(
                 f"MAPPO action_dim={self.policy.action_dim} but fleet has {len(fleet)} taxis"
             )
+        # There is no feasible assignment without an idle taxi.  In
+        # particular, do not issue full-network route queries for each
+        # pending reservation on every simulation step while the whole fleet
+        # is already servicing rides.
+        if not idle:
+            return []
         idle_set = set(idle)
         used = set()
         assignments = []
