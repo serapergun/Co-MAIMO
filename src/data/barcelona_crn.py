@@ -41,8 +41,6 @@ def _route_is_safe(path):
     length = sum(edge.getLength() for edge in path)
     if not 3000.0 <= length <= 6000.0:
         return False
-    if min((edge.getLength() for edge in path), default=0.0) < 25.0:
-        return False
     return (
         all(any(lane.allows("passenger") for lane in edge.getLanes()) for edge in path)
         and not any(
