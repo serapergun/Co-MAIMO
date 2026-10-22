@@ -5,26 +5,30 @@ import json
 import shutil
 import xml.etree.ElementTree as ET
 
-def _last_person_departure(sumocfg):
-    """Return the last numeric person departure declared by a SUMO configuration."""
+def _person_departures(sumocfg):
+    """Return sorted numeric person departures declared by a SUMO configuration."""
     cfg = Path(sumocfg)
     config_root = ET.parse(cfg).getroot()
     route_files = config_root.find("./input/route-files")
     if route_files is None or not route_files.get("value"):
-        return None
+        return ()
 
-    latest = None
+    departures = []
     for route_file in route_files.get("value").split(","):
         path = Path(route_file.strip())
         if not path.is_absolute():
             path = cfg.parent / path
         for person in ET.parse(path).getroot().findall("person"):
             try:
-                departure = float(person.get("depart", ""))
+                departures.append(float(person.get("depart", "")))
             except ValueError:
                 continue
-            latest = departure if latest is None else max(latest, departure)
-    return latest
+    return tuple(sorted(departures))
+
+
+def _last_person_departure(sumocfg):
+    departures = _person_departures(sumocfg)
+    return max(departures) if departures else None
 
 
 def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
@@ -36,7 +40,8 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     cfg = Path(sumocfg)
     if not cfg.exists():
         raise FileNotFoundError(cfg)
-    last_person_depart_s = _last_person_departure(cfg)
+    person_departures = _person_departures(cfg)
+    last_person_depart_s = max(person_departures) if person_departures else None
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -70,9 +75,14 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     horizon_exceeded = False
     completed_after_last_request = False
     traci.start(cmd)
+    next_step_target = None
     try:
         while traci.simulation.getMinExpectedNumber() > 0:
-            traci.simulationStep()
+            if next_step_target is None:
+                traci.simulationStep()
+            else:
+                traci.simulationStep(next_step_target)
+                next_step_target = None
             now = float(traci.simulation.getTime())
             if max_time_s is not None and now > max_time_s:
                 horizon_exceeded = True
@@ -129,16 +139,22 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
                 "fleet_visible": len(fleet),
                 "min_expected": traci.simulation.getMinExpectedNumber(),
             })
-            if (
-                last_person_depart_s is not None
-                and now >= last_person_depart_s
-                and not active_reservations
+            no_active_service = (
+                not active_reservations
                 and not traci.person.getIDList()
                 and not pickup_now
                 and not occupied_now
-            ):
-                completed_after_last_request = True
-                break
+            )
+            if no_active_service:
+                future_departures = [departure for departure in person_departures if departure > now]
+                if future_departures:
+                    # SUMO still simulates every intervening second, but one
+                    # TraCI command avoids thousands of idle client round trips.
+                    next_step_target = min(future_departures)
+                    continue
+                if last_person_depart_s is not None and now > last_person_depart_s:
+                    completed_after_last_request = True
+                    break
     finally:
         final_reservations = list(traci.person.getTaxiReservations(0))
         remaining_persons = list(traci.person.getIDList())
