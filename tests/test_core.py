@@ -321,3 +321,19 @@ def test_dcf_coordination_overhead_break_even_and_ir():
     assert ir_only.coalition_gain > 0.0
     assert ir_only.accepted is False
     assert ir_only.reason == "individual_rationality_violation"
+
+
+def test_last_person_departure_reads_route_file(tmp_path):
+    from src.simulation.traci_runner import _last_person_departure
+
+    route = tmp_path / "scenario.rou.xml"
+    route.write_text(
+        '<routes><person id="p0" depart="10"/><person id="p1" depart="1810"/></routes>',
+        encoding="utf-8",
+    )
+    config = tmp_path / "scenario.sumocfg"
+    config.write_text(
+        '<configuration><input><route-files value="scenario.rou.xml"/></input></configuration>',
+        encoding="utf-8",
+    )
+    assert _last_person_departure(config) == 1810.0
