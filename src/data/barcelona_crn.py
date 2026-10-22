@@ -51,6 +51,67 @@ def _route_is_safe(path):
     )
 
 
+def _largest_passenger_scc_ids(net):
+    """Return edge IDs in the largest passenger-accessible SCC.
+
+    A valid OD pair alone is insufficient for the taxi experiment: a vehicle
+    serving a prior request must also be able to reach the next request's
+    origin.  Restricting demand to one strong component supplies that
+    reachability invariant across all fleet states.
+    """
+    passenger_edges = [
+        edge for edge in net.getEdges()
+        if not edge.getID().startswith(":")
+        and any(lane.allows("passenger") for lane in edge.getLanes())
+    ]
+    edge_ids = {edge.getID() for edge in passenger_edges}
+    adjacency = {edge_id: set() for edge_id in edge_ids}
+    reverse = {edge_id: set() for edge_id in edge_ids}
+    for edge in passenger_edges:
+        for out_edge in edge.getOutgoing().keys():
+            out_id = out_edge.getID()
+            if out_id in edge_ids:
+                adjacency[edge.getID()].add(out_id)
+                reverse[out_id].add(edge.getID())
+
+    visited = set()
+    finish = []
+    for root in edge_ids:
+        if root in visited:
+            continue
+        visited.add(root)
+        stack = [(root, iter(adjacency[root]))]
+        while stack:
+            edge_id, outgoing = stack[-1]
+            try:
+                next_edge = next(outgoing)
+                if next_edge not in visited:
+                    visited.add(next_edge)
+                    stack.append((next_edge, iter(adjacency[next_edge])))
+            except StopIteration:
+                finish.append(edge_id)
+                stack.pop()
+
+    largest = set()
+    assigned = set()
+    for root in reversed(finish):
+        if root in assigned:
+            continue
+        component = set()
+        stack = [root]
+        assigned.add(root)
+        while stack:
+            edge_id = stack.pop()
+            component.add(edge_id)
+            for incoming in reverse[edge_id]:
+                if incoming not in assigned:
+                    assigned.add(incoming)
+                    stack.append(incoming)
+        if len(component) > len(largest):
+            largest = component
+    return largest
+
+
 def safe_od_pool(net, max_pairs=96, max_route_queries=2048):
     """Build a bounded, deterministic pool of short, passenger-safe OD pairs.
 
@@ -63,7 +124,11 @@ def safe_od_pool(net, max_pairs=96, max_route_queries=2048):
     if max_pairs <= 0 or max_route_queries <= 0:
         raise ValueError("max_pairs and max_route_queries must be positive")
 
-    edges = [edge for edge in net.getEdges() if _eligible_edge(edge)]
+    largest_scc = _largest_passenger_scc_ids(net)
+    edges = [
+        edge for edge in net.getEdges()
+        if edge.getID() in largest_scc and _eligible_edge(edge)
+    ]
     if not edges:
         return []
 
