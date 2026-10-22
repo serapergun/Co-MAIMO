@@ -324,7 +324,7 @@ def test_dcf_coordination_overhead_break_even_and_ir():
 
 
 def test_last_person_departure_reads_route_file(tmp_path):
-    from src.simulation.traci_runner import _last_person_departure
+    from src.simulation.traci_runner import _last_person_departure, _person_departures
 
     route = tmp_path / "scenario.rou.xml"
     route.write_text(
@@ -336,4 +336,5 @@ def test_last_person_departure_reads_route_file(tmp_path):
         '<configuration><input><route-files value="scenario.rou.xml"/></input></configuration>',
         encoding="utf-8",
     )
+    assert _person_departures(config) == (10.0, 1810.0)
     assert _last_person_departure(config) == 1810.0
