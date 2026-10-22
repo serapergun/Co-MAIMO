@@ -1,5 +1,8 @@
 """Seeded safe Barcelona demand realizations for paired B4-B6 evaluation."""
 
+from collections import defaultdict
+from math import floor
+
 import numpy as np
 
 
@@ -8,43 +11,107 @@ FRAGILE_EDGE_PREFIXES = (
     "-545747622#3", "-753154730#3", "-285182795", "533269953",
     "300828583#0",
 )
+_GRID_SIZE_M = 1500.0
+_GRID_OFFSETS = (
+    (2, 0), (-2, 0), (0, 2), (0, -2),
+    (2, 1), (2, -1), (-2, 1), (-2, -1),
+    (3, 0), (-3, 0), (0, 3), (0, -3),
+)
 
 
-def safe_od_pool(net, max_pairs=96):
-    edges = [
-        e for e in net.getEdges()
-        if not e.getID().startswith(":")
-        and any(l.allows("passenger") for l in e.getLanes())
+def _eligible_edge(edge):
+    if edge.getID().startswith(":"):
+        return False
+    return max(
+        (lane.getLength() for lane in edge.getLanes() if lane.allows("passenger")),
+        default=0.0,
+    ) >= 80.0
+
+
+def _edge_coordinate(edge):
+    shape = edge.getShape()
+    if shape:
+        return shape[len(shape) // 2]
+    return edge.getFromNode().getCoord()
+
+
+def _route_is_safe(path):
+    if not path:
+        return False
+    length = sum(edge.getLength() for edge in path)
+    if not 3000.0 <= length <= 6000.0:
+        return False
+    if min((edge.getLength() for edge in path), default=0.0) < 25.0:
+        return False
+    return (
+        all(any(lane.allows("passenger") for lane in edge.getLanes()) for edge in path)
+        and not any(
+            edge.getID().startswith(prefix)
+            for edge in path
+            for prefix in FRAGILE_EDGE_PREFIXES
+        )
+    )
+
+
+def safe_od_pool(net, max_pairs=96, max_route_queries=2048):
+    """Build a bounded, deterministic pool of short, passenger-safe OD pairs.
+
+    A Cartesian scan of a city-scale network can make hundreds of thousands of
+    shortest-path calls before it finds enough routes. Candidate OD edges are
+    therefore selected from spatially separated grid cells. The route-query cap
+    keeps preflight latency bounded without changing demand seeds or B4-B6
+    pairing once the pool has been constructed.
+    """
+    if max_pairs <= 0 or max_route_queries <= 0:
+        raise ValueError("max_pairs and max_route_queries must be positive")
+
+    edges = [edge for edge in net.getEdges() if _eligible_edge(edge)]
+    if not edges:
+        return []
+
+    coordinates = {edge.getID(): _edge_coordinate(edge) for edge in edges}
+    edges.sort(key=lambda edge: (*coordinates[edge.getID()], edge.getID()))
+
+    buckets = defaultdict(list)
+    for edge in edges:
+        x, y = coordinates[edge.getID()]
+        buckets[(floor(x / _GRID_SIZE_M), floor(y / _GRID_SIZE_M))].append(edge)
+    for bucket in buckets.values():
+        bucket.sort(key=lambda edge: edge.getID())
+
+    origin_count = min(len(edges), 768)
+    origin_indices = [
+        min(len(edges) - 1, (index * len(edges)) // origin_count)
+        for index in range(origin_count)
     ]
+
     pairs = []
-    for o in edges[:3000]:
-        for d in edges[-1:max(-3001, -len(edges)):-20]:
-            if o.getID() == d.getID():
+    seen_pairs = set()
+    route_queries = 0
+    for origin_position, origin_index in enumerate(origin_indices):
+        origin = edges[origin_index]
+        ox, oy = coordinates[origin.getID()]
+        origin_cell = (floor(ox / _GRID_SIZE_M), floor(oy / _GRID_SIZE_M))
+
+        for offset_position, (dx, dy) in enumerate(_GRID_OFFSETS):
+            candidates = buckets.get((origin_cell[0] + dx, origin_cell[1] + dy), [])
+            if not candidates:
                 continue
-            route, _ = net.getOptimalPath(o, d, vClass="passenger")
-            if not route:
+            destination = candidates[
+                (origin_position * 17 + offset_position * 31) % len(candidates)
+            ]
+            pair = (origin.getID(), destination.getID())
+            if origin is destination or pair in seen_pairs:
                 continue
-            path = list(route)
-            length = sum(e.getLength() for e in path)
-            ol = [l for l in o.getLanes() if l.allows("passenger")]
-            dl = [l for l in d.getLanes() if l.allows("passenger")]
-            if not (3000 <= length <= 6000):
-                continue
-            if max((l.getLength() for l in ol), default=0) < 80:
-                continue
-            if max((l.getLength() for l in dl), default=0) < 80:
-                continue
-            if min((e.getLength() for e in path), default=0) < 25:
-                continue
-            if not all(any(l.allows("passenger") for l in e.getLanes()) for e in path):
-                continue
-            if any(
-                e.getID().startswith(prefix)
-                for e in path for prefix in FRAGILE_EDGE_PREFIXES
-            ):
-                continue
-            pairs.append((o.getID(), d.getID()))
-            if len(pairs) >= max_pairs:
+
+            route_queries += 1
+            route, _ = net.getOptimalPath(origin, destination, vClass="passenger")
+            if _route_is_safe(list(route) if route else []):
+                pairs.append(pair)
+                seen_pairs.add(pair)
+                if len(pairs) >= max_pairs:
+                    return pairs
+            if route_queries >= max_route_queries:
                 return pairs
     return pairs
 
