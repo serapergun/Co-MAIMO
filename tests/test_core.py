@@ -101,6 +101,41 @@ def test_mappo_dispatcher_skips_route_queries_when_no_taxi_is_idle():
     assert dispatcher.decisions == []
 
 
+def test_largest_passenger_scc_excludes_one_way_fragment():
+    from src.data.barcelona_crn import _largest_passenger_scc_ids
+
+    class Lane:
+        def allows(self, vehicle_class):
+            return vehicle_class == "passenger"
+
+    class Edge:
+        def __init__(self, edge_id):
+            self.edge_id = edge_id
+            self.outgoing = {}
+
+        def getID(self):
+            return self.edge_id
+
+        def getLanes(self):
+            return [Lane()]
+
+        def getOutgoing(self):
+            return self.outgoing
+
+    class Net:
+        def __init__(self, edges):
+            self.edges = edges
+
+        def getEdges(self):
+            return self.edges
+
+    a, b, c = (Edge(edge_id) for edge_id in ("a", "b", "c"))
+    a.outgoing[b] = None
+    b.outgoing[a] = None
+    b.outgoing[c] = None
+    assert _largest_passenger_scc_ids(Net([a, b, c])) == {"a", "b"}
+
+
 def test_mappo_training_trajectory_uses_discounted_service_returns():
     import numpy as np
     from src.marl.mappo import LinearMAPPO
