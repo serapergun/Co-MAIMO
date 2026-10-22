@@ -3,6 +3,29 @@ from pathlib import Path
 import csv
 import json
 import shutil
+import xml.etree.ElementTree as ET
+
+def _last_person_departure(sumocfg):
+    """Return the last numeric person departure declared by a SUMO configuration."""
+    cfg = Path(sumocfg)
+    config_root = ET.parse(cfg).getroot()
+    route_files = config_root.find("./input/route-files")
+    if route_files is None or not route_files.get("value"):
+        return None
+
+    latest = None
+    for route_file in route_files.get("value").split(","):
+        path = Path(route_file.strip())
+        if not path.is_absolute():
+            path = cfg.parent / path
+        for person in ET.parse(path).getroot().findall("person"):
+            try:
+                departure = float(person.get("depart", ""))
+            except ValueError:
+                continue
+            latest = departure if latest is None else max(latest, departure)
+    return latest
+
 
 def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     import traci
@@ -13,6 +36,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     cfg = Path(sumocfg)
     if not cfg.exists():
         raise FileNotFoundError(cfg)
+    last_person_depart_s = _last_person_departure(cfg)
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -44,6 +68,7 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
     request_assigned_s = {}
     request_pickup_s = {}
     horizon_exceeded = False
+    completed_after_last_request = False
     traci.start(cmd)
     try:
         while traci.simulation.getMinExpectedNumber() > 0:
@@ -104,6 +129,16 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
                 "fleet_visible": len(fleet),
                 "min_expected": traci.simulation.getMinExpectedNumber(),
             })
+            if (
+                last_person_depart_s is not None
+                and now >= last_person_depart_s
+                and not active_reservations
+                and not traci.person.getIDList()
+                and not pickup_now
+                and not occupied_now
+            ):
+                completed_after_last_request = True
+                break
     finally:
         final_reservations = list(traci.person.getTaxiReservations(0))
         remaining_persons = list(traci.person.getIDList())
@@ -124,6 +159,8 @@ def run(sumocfg, out_dir, dispatch_fn, max_time_s=None):
         "pickup_taxi_ids": sorted(pickup_taxi_ids),
         "occupied_taxi_ids": sorted(occupied_taxi_ids),
         "horizon_exceeded": horizon_exceeded,
+        "completed_after_last_request": completed_after_last_request,
+        "last_person_depart_s": last_person_depart_s,
         "final_simulation_time_s": rows[-1]["time"] if rows else 0.0,
         "occupied_distance_m_by_taxi": {
             vehicle_id: round(distance_m, 6)
