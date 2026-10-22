@@ -53,8 +53,6 @@ jobs:
         run: PYTHONPATH=. python scripts/plot_b6_lambda_sensitivity.py
       - name: Evaluate DCF coordination-overhead sensitivity
         run: PYTHONPATH=. python scripts/barcelona_coordination_sensitivity.py
-      - name: Evaluate DCF coordination-overhead sensitivity
-        run: PYTHONPATH=. python scripts/barcelona_coordination_sensitivity.py
       - name: Build coordination sensitivity publication artifacts
         run: PYTHONPATH=. python scripts/plot_coordination_sensitivity.py
       - name: Build paired B4-B5-B6 artifact
