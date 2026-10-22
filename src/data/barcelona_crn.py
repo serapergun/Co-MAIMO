@@ -109,6 +109,7 @@ def safe_od_pool(net, max_pairs=96, max_route_queries=2048):
                 seen_pairs.add(pair)
                 if len(pairs) >= max_pairs:
                     return pairs
+                break
             if route_queries >= max_route_queries:
                 return pairs
     return pairs
