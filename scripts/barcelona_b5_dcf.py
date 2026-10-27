@@ -1,5 +1,6 @@
 """Held-out B5 evaluation: frozen B4 MAPPO + DCF/CCE, no retraining."""
 from pathlib import Path
+import os
 import json
 import sumolib
 
@@ -40,8 +41,13 @@ def main():
         raise SystemExit("B4 checkpoint dimensions incompatible with B5 protocol")
     checkpoint_hash = checkpoint_sha256(B4_CHECKPOINT)
     heldout = []
+    selected_seed = os.environ.get('B5_DEMAND_SEED')
+    if selected_seed is not None and int(selected_seed) not in plan.heldout:
+        raise SystemExit(f'B5_DEMAND_SEED {selected_seed} is not a held-out seed')
 
     for i, demand_seed in enumerate(plan.heldout):
+        if selected_seed is not None and demand_seed != int(selected_seed):
+            continue
         scenario = ROOT / "scenarios" / f"heldout_{demand_seed}"
         cfg = write_scenario(scenario, pairs, demand_seed)
         out = ROOT / "heldout" / f"seed_{demand_seed}"
