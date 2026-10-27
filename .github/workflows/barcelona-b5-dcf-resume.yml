@@ -1,0 +1,99 @@
+name: barcelona-b5-dcf-resume
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  b5-seed:
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [9101, 9102, 9103, 9104, 9105]
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned SUMO and GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+          echo "SUMO_HOME=$(python -c 'import sumo; print(sumo.SUMO_HOME)')" >> "$GITHUB_ENV"
+      - name: Restore frozen B4 checkpoint and held-out evidence from run 24
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts
+          gh run download 40506769375 --repo "${{ github.repository }}" --name barcelona-b5-dcf --dir artifacts
+          test -s artifacts/barcelona_b4_mappo/checkpoints/b4_mappo_final.npz
+          test -s artifacts/barcelona_b4_mappo/heldout_metrics.json
+      - name: Build identical Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Evaluate B5 on one frozen-policy held-out seed
+        env:
+          B5_DEMAND_SEED: ${{ matrix.seed }}
+        run: PYTHONPATH=. python scripts/barcelona_b5_dcf.py
+      - name: Upload seed metrics even if interrupted
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b5-seed-${{ matrix.seed }}
+          if-no-files-found: warn
+          path: |
+            artifacts/barcelona_b5_dcf/
+  paired:
+    needs: b5-seed
+    runs-on: ubuntu-latest
+    if: ${{ needs.b5-seed.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: b5-seed-*
+          path: collected
+      - name: Download B4 held-out reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p reference
+          gh run download 40506769375 --repo "${{ github.repository }}" --name barcelona-b5-dcf --dir reference
+      - name: Verify five paired CRN seeds and aggregate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          seeds=(9101,9102,9103,9104,9105)
+          b4=json.loads(Path('reference/barcelona_b4_mappo/heldout_metrics.json').read_text())
+          a={int(x['demand_seed']):x for x in b4}
+          assert set(a)==set(seeds), f'B4 seeds {set(a)}'
+          rows=[]
+          b5=[]
+          for seed in seeds:
+              p=Path(f'collected/b5-seed-{seed}/barcelona_b5_dcf/heldout_metrics.json')
+              items=json.loads(p.read_text())
+              assert len(items)==1 and int(items[0]['demand_seed'])==seed, str(p)
+              x,y=a[seed],items[0]
+              for label,v in [('B4',x),('B5',y)]:
+                  assert v['completed']==24 and v['unresolved']==0 and v['teleports']==0, (seed,label,v)
+              b5.append(y)
+              rows.append({'demand_seed':seed,
+                **{f'B4_{k}':x[k] for k in ('mean_pickup_wait_s','empty_km','net_energy_kWh')},
+                **{f'B5_{k}':y[k] for k in ('mean_pickup_wait_s','empty_km','net_energy_kWh')},
+                **{f'delta_{k}':y[k]-x[k] for k in ('mean_pickup_wait_s','empty_km','net_energy_kWh')},
+                'coalition_events':y['coalition_events'],
+                'accepted_coalitions':y['accepted_coalitions']})
+          out=Path('paired_results')
+          out.mkdir(exist_ok=True)
+          (out/'paired_b4_b5.json').write_text(json.dumps(rows,indent=2))
+          (out/'heldout_metrics.json').write_text(json.dumps(b5,indent=2))
+          print(json.dumps(rows,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b4-b5-paired-resume
+          path: paired_results/
