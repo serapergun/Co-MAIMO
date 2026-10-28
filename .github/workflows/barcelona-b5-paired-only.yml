@@ -1,0 +1,84 @@
+name: barcelona-b5-paired-only
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  paired-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download existing five B5 seed artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh run list --repo "${{ github.repository }}" --workflow barcelona-b5-dcf-resume.yml --branch fix/b5-seed-matrix-resume-20261027 --limit 30 --json databaseId,number --jq '.[] | select(.number == 1) | .databaseId' | head -n1)"
+          test -n "$RUN_ID" || { echo "::error::B5 resume #1 not found"; exit 1; }
+          echo "Using B5 resume run $RUN_ID"
+          mkdir -p collected
+          for seed in 9101 9102 9103 9104 9105; do
+            gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "b5-seed-$seed" --dir "collected/b5-seed-$seed"
+          done
+      - name: Download original B4 held-out reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p reference
+          gh run download 40506769375 --repo "${{ github.repository }}" --name barcelona-b5-dcf --dir reference
+      - name: Validate five paired seeds and produce JSON evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          seeds=(9101,9102,9103,9104,9105)
+          def locate(root,filename):
+              matches=list(Path(root).rglob(filename))
+              if len(matches)!=1:
+                  raise RuntimeError(f'Expected exactly one {filename} under {root}, got: {matches}')
+              print('Using',matches[0])
+              return matches[0]
+          b4=json.loads(locate('reference/barcelona_b4_mappo','heldout_metrics.json').read_text())
+          if not isinstance(b4,list):
+              raise ValueError('B4 metrics must be a list')
+          b4_by_seed={int(v['demand_seed']):v for v in b4}
+          if len(b4_by_seed)!=5 or set(b4_by_seed)!=set(seeds):
+              raise ValueError(f'B4 seed mismatch: {sorted(b4_by_seed)}')
+          b5_all=[]
+          paired=[]
+          for seed in seeds:
+              root=Path('collected')/f'b5-seed-{seed}'
+              b5=json.loads(locate(root,'heldout_metrics.json').read_text())
+              if not isinstance(b5,list) or len(b5)!=1 or int(b5[0]['demand_seed'])!=seed:
+                  raise ValueError(f'B5 seed {seed} mismatch')
+              x,y=b4_by_seed[seed],b5[0]
+              for label,v in [('B4',x),('B5',y)]:
+                  if (v['completed'],v['unresolved'],v['teleports'])!=(24,0,0):
+                      raise ValueError(f'{label} seed {seed} lifecycle QC failure: {v}')
+                  for key in ('mean_pickup_wait_s','empty_km','net_energy_kWh'):
+                      if not isinstance(v[key],(int,float)):
+                          raise ValueError(f'{label} seed {seed} invalid {key}')
+              b5_all.append(y)
+              row={'demand_seed':seed,'coalition_events':y['coalition_events'],
+                   'accepted_coalitions':y['accepted_coalitions']}
+              for key in ('mean_pickup_wait_s','empty_km','net_energy_kWh'):
+                  row[f'B4_{key}']=x[key]
+                  row[f'B5_{key}']=y[key]
+                  row[f'delta_{key}']=y[key]-x[key]
+              paired.append(row)
+          out=Path('paired_results')
+          out.mkdir()
+          (out/'heldout_metrics.json').write_text(json.dumps(b5_all,indent=2))
+          (out/'paired_b4_b5.json').write_text(json.dumps(paired,indent=2))
+          print(json.dumps(paired,indent=2))
+          PY
+      - name: Upload validated analysis outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: b4-b5-paired-analysis-only
+          path: paired_results/
+          if-no-files-found: error
