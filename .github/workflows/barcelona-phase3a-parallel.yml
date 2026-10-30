@@ -1,0 +1,228 @@
+name: barcelona-phase3a-parallel
+on:
+  workflow_dispatch:
+jobs:
+  network:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Regression gate
+        run: PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py
+      - name: Build Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-network
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/barcelona_network/barcelona.net.xml
+            artifacts/barcelona_network/network_manifest.json
+
+  b4:
+    needs: network
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase3a-network
+          path: artifacts
+          merge-multiple: true
+      - name: Train and evaluate B4
+        run: PYTHONPATH=. python scripts/barcelona_b4_mappo.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-b4
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/barcelona_b4_mappo/checkpoints/
+            artifacts/barcelona_b4_mappo/heldout_metrics.json
+            artifacts/barcelona_b4_mappo/experiment_manifest.json
+            artifacts/barcelona_b4_mappo/training_history.json
+
+  b5:
+    needs: b4
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase3a-*
+          path: artifacts
+          merge-multiple: true
+      - name: Execute b5
+        run: PYTHONPATH=. python scripts/barcelona_b5_dcf.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-b5
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/barcelona_b5_dcf/heldout_metrics.json
+            artifacts/barcelona_b5_dcf/experiment_manifest.json
+
+  b6:
+    needs: b4
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase3a-*
+          path: artifacts
+          merge-multiple: true
+      - name: Execute b6
+        run: PYTHONPATH=. python scripts/barcelona_b6_shapley.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-b6
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/barcelona_b6_shapley/checkpoints/
+            artifacts/barcelona_b6_shapley/heldout_metrics.json
+            artifacts/barcelona_b6_shapley/training_summary.json
+            artifacts/barcelona_b6_shapley/experiment_manifest.json
+
+  lambda:
+    needs: b4
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase3a-*
+          path: artifacts
+          merge-multiple: true
+      - name: Execute lambda
+        run: PYTHONPATH=. python scripts/barcelona_b6_lambda_sensitivity.py
+      - name: Generate lambda publication outputs
+        run: PYTHONPATH=. python scripts/plot_b6_lambda_sensitivity.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-lambda
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/barcelona_b6_lambda_sensitivity/
+
+  coord:
+    needs: b4
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase3a-*
+          path: artifacts
+          merge-multiple: true
+      - name: Execute coord
+        run: PYTHONPATH=. python scripts/barcelona_coordination_sensitivity.py
+      - name: Generate coordination publication outputs
+        run: PYTHONPATH=. python scripts/plot_coordination_sensitivity.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-coord
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/barcelona_coordination_sensitivity/
+
+  validate:
+    needs: [b5, b6, lambda, coord]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install analysis runtime
+        run: python -m pip install numpy pandas matplotlib
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase3a-*
+          path: artifacts
+          merge-multiple: true
+      - name: Build paired B4-B5-B6 analysis
+        run: PYTHONPATH=. python scripts/compare_phase3a_b456.py
+      - name: Validate all Phase3A publication artifacts
+        run: PYTHONPATH=. python scripts/validate_phase3a_artifacts.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase3a-validated
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/phase3a_b456/
+            artifacts/barcelona_b6_lambda_sensitivity/publication/
+            artifacts/barcelona_coordination_sensitivity/publication/
