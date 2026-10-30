@@ -1,6 +1,12 @@
 name: barcelona-b1-heldout-crn
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/b1-heldout-crn-benchmark-20261030
+    paths:
+      - '.github/workflows/barcelona-b1-heldout-crn.yml'
+      - 'scripts/barcelona_b1_heldout.py'
 jobs:
   b1:
     runs-on: ubuntu-latest
