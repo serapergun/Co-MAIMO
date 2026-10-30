@@ -1,0 +1,69 @@
+name: barcelona-b456-phase3a
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-b456-phase3a.yml"
+      - "scripts/barcelona_b4_mappo.py"
+      - "scripts/barcelona_b5_dcf.py"
+      - "scripts/barcelona_b6_shapley.py"
+      - "scripts/barcelona_b6_lambda_sensitivity.py"
+      - "scripts/plot_b6_lambda_sensitivity.py"
+      - "scripts/barcelona_coordination_sensitivity.py"
+      - "scripts/plot_coordination_sensitivity.py"
+      - "scripts/compare_phase3a_b456.py"
+      - "scripts/validate_phase3a_artifacts.py"
+      - "src/marl/**"
+      - "src/coalition/**"
+      - "src/data/barcelona_crn.py"
+      - "src/evaluation/**"
+jobs:
+  phase3a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Fail-fast MAPPO and coalition regression gate
+        run: |
+          python -m compileall -q src/marl src/coalition src/evaluation scripts/barcelona_b4_mappo.py scripts/barcelona_b5_dcf.py scripts/barcelona_b6_shapley.py scripts/barcelona_b6_lambda_sensitivity.py scripts/plot_b6_lambda_sensitivity.py scripts/barcelona_coordination_sensitivity.py scripts/plot_coordination_sensitivity.py scripts/compare_phase3a_b456.py scripts/validate_phase3a_artifacts.py
+          PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py
+      - name: Build fixed Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Train B4 and evaluate held-out CRN
+        run: PYTHONPATH=. python scripts/barcelona_b4_mappo.py
+      - name: Evaluate B5 on frozen B4 policy
+        run: PYTHONPATH=. python scripts/barcelona_b5_dcf.py
+      - name: Train B6 with event Shapley feedback and evaluate
+        run: PYTHONPATH=. python scripts/barcelona_b6_shapley.py
+      - name: Evaluate B6 Shapley lambda sensitivity
+        run: PYTHONPATH=. python scripts/barcelona_b6_lambda_sensitivity.py
+      - name: Build B6 lambda sensitivity publication artifacts
+        run: PYTHONPATH=. python scripts/plot_b6_lambda_sensitivity.py
+      - name: Evaluate DCF coordination-overhead sensitivity
+        run: PYTHONPATH=. python scripts/barcelona_coordination_sensitivity.py
+      - name: Build coordination sensitivity publication artifacts
+        run: PYTHONPATH=. python scripts/plot_coordination_sensitivity.py
+      - name: Build paired B4-B5-B6 artifact
+        run: PYTHONPATH=. python scripts/compare_phase3a_b456.py
+      - name: Validate complete Phase3A artifact set
+        run: PYTHONPATH=. python scripts/validate_phase3a_artifacts.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b456-phase3a
+          path: |
+            artifacts/barcelona_b4_mappo/
+            artifacts/barcelona_b5_dcf/
+            artifacts/barcelona_b6_shapley/
+            artifacts/barcelona_b6_lambda_sensitivity/
+            artifacts/barcelona_coordination_sensitivity/
+            artifacts/phase3a_b456/
