@@ -1,0 +1,68 @@
+name: barcelona-operational-matrix
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-operational-matrix.yml"
+      - "scripts/barcelona_operational_matrix.py"
+      - "scripts/aggregate_barcelona_operational.py"
+      - "scripts/plot_barcelona_operational.py"
+      - "src/baselines/b1_dispatch.py"
+      - "src/simulation/traci_runner.py"
+      - "src/evaluation/parse_mmpevem_emissions.py"
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        taxis: [4, 8, 12]
+        requests: [12, 24, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          pip install eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Compile gate
+        run: python -m py_compile scripts/barcelona_operational_matrix.py src/simulation/traci_runner.py src/baselines/b1_dispatch.py src/evaluation/parse_mmpevem_emissions.py
+      - name: Build fixed-snapshot Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Run operational scenario
+        run: PYTHONPATH=. python scripts/barcelona_operational_matrix.py --taxis ${{ matrix.taxis }} --requests ${{ matrix.requests }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: operational-t${{ matrix.taxis }}-r${{ matrix.requests }}
+          path: artifacts/barcelona_operational/
+
+  aggregate:
+    needs: matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: operational-t*-r*
+          path: downloaded
+      - name: Assemble matrix outputs
+        run: |
+          mkdir -p artifacts/barcelona_operational
+          for d in downloaded/operational-t*-r*; do
+            cp -a "$d"/. artifacts/barcelona_operational/
+          done
+          python -m py_compile scripts/aggregate_barcelona_operational.py
+          python scripts/aggregate_barcelona_operational.py
+          pip install matplotlib
+          python -m py_compile scripts/plot_barcelona_operational.py
+          python scripts/plot_barcelona_operational.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operational-matrix-aggregate
+          path: artifacts/barcelona_operational/aggregate/

@@ -1,0 +1,15 @@
+source:
+  survey: EMEF 2023
+  publisher: ATM / Institut Metropoli
+  displacement_file: null
+  dictionary_file: null
+fields:
+  survey_weight: null
+  origin_district: null
+  destination_district: null
+  start_time: null
+  duration: null
+  mode: null
+  purpose: null
+geographic_gate:
+  district_od_verified: false

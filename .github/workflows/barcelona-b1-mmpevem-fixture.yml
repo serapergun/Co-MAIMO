@@ -1,0 +1,53 @@
+name: barcelona-b1-mmpevem-fixture
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-b1-mmpevem-fixture.yml"
+      - "scripts/barcelona_b1_fixture.py"
+      - "scripts/build_barcelona_network.py"
+      - "src/evaluation/parse_mmpevem_emissions.py"
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          pip install eclipse-sumo==1.27.1 sumolib==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Build fixed-snapshot Barcelona preflight network
+        run: python scripts/build_barcelona_network.py
+      - name: Run deterministic integration fixture
+        run: python scripts/barcelona_b1_fixture.py
+      - name: Validate MMPEVEM energy and trip completion
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
+          r=Path("artifacts/barcelona_b1_fixture")
+          trips=ET.parse(r/"tripinfo.xml").getroot().findall("tripinfo")
+          if len(trips)!=1: raise SystemExit(f"expected 1 tripinfo, got {len(trips)}")
+          t=trips[0]
+          if t.get("vaporized","false")=="true": raise SystemExit("fixture vehicle vaporized")
+          dist=float(t.get("routeLength","0"))/1000
+          if dist<=0: raise SystemExit("non-positive vehicle-km")
+          m=mmpevem_emission_energy(r/"emissions.xml")
+          m["vehicle_km"]=dist; m["kWh_per_vehicle_km"]=m["net_energy_kWh"]/dist
+          if m["net_energy_kWh"]<=0: raise SystemExit("non-positive net MMPEVEM energy")
+          (r/"validated_metrics.json").write_text(json.dumps(m,indent=2))
+          print(json.dumps(m,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b1-mmpevem-fixture
+          path: artifacts/barcelona_b1_fixture/

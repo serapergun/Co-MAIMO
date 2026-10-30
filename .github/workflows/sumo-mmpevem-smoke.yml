@@ -1,0 +1,47 @@
+name: sumo-mmpevem-smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/sumo-mmpevem-smoke.yml"
+      - "scripts/mmpevem_smoke.py"
+      - "src/evaluation/parse_mmpevem_emissions.py"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install SUMO
+        run: |
+          python -m pip install --upgrade pip
+          pip install eclipse-sumo==1.27.1
+      - name: Run MMPEVEM smoke test
+        run: python scripts/mmpevem_smoke.py
+      - name: Validate MMPEVEM emission energy
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
+          root=Path("artifacts/mmpevem_smoke")
+          m=mmpevem_emission_energy(root/"emissions.xml")
+          distance=sum(float(x.get("routeLength")) for x in ET.parse(root/"tripinfo.xml").getroot().findall("tripinfo"))/1000.0
+          if distance <= 0:
+              raise SystemExit("non-positive vehicle-km")
+          m["vehicle_km"]=distance
+          m["kWh_per_vehicle_km"]=m["net_energy_kWh"]/distance
+          (root/"energy_metrics.json").write_text(json.dumps(m,indent=2))
+          print(json.dumps(m,indent=2))
+          PY
+      - name: Show result
+        run: cat artifacts/mmpevem_smoke/energy_metrics.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mmpevem-smoke-results
+          path: artifacts/mmpevem_smoke/

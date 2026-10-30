@@ -1,0 +1,52 @@
+name: barcelona-b4-mappo
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-b4-mappo.yml"
+      - "scripts/barcelona_b4_mappo.py"
+      - "src/marl/**"
+      - "src/simulation/traci_runner.py"
+jobs:
+  b4-mappo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install pinned runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install numpy eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Build fixed-snapshot Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Train and evaluate frozen B4 MAPPO
+        run: PYTHONPATH=. python scripts/barcelona_b4_mappo.py
+      - name: Validate held-out lifecycle and MMPEVEM energy
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from src.evaluation.parse_mmpevem_emissions import mmpevem_emission_energy
+          root=Path("artifacts/barcelona_b4_mappo")
+          rows=json.loads((root/"heldout_metrics.json").read_text())
+          expected={9101,9102,9103,9104,9105}
+          got={int(r["demand_seed"]) for r in rows}
+          if got != expected: raise SystemExit(f"held-out CRN seeds mismatch: {got}")
+          if len(rows) != 5: raise SystemExit("expected five held-out B4 runs")
+          for r in rows:
+              if r["completed"] != 24 or r["unresolved"] != 0 or r["teleports"] != 0:
+                  raise SystemExit(f"held-out lifecycle QC failed: {r}")
+              if r["net_energy_kWh"] <= 0 or r["fleet_vehicle_km"] <= 0:
+                  raise SystemExit(f"held-out physical QC failed: {r}")
+          print(json.dumps(rows,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b4-mappo
+          path: artifacts/barcelona_b4_mappo/

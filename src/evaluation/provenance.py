@@ -1,0 +1,15 @@
+PROVENANCE={
+"EMEF survey observations":"observed",
+"EMEF survey weights":"observed",
+"time-dependent OD distribution":"derived",
+"ODM eligibility":"scenario assumption",
+"ODM penetration":"scenario assumption",
+"generated passenger requests":"simulated input",
+"OSM road geometry":"observed/geospatial",
+"SUMO trajectories":"simulated output",
+"waiting and travel time":"simulated output",
+"electrical energy":"model-estimated from simulation",
+"coalition membership":"algorithm-generated",
+"CCE coalition value":"model-estimated",
+"Shapley contribution":"derived from CCE characteristic function",
+}

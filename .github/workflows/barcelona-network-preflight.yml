@@ -1,0 +1,37 @@
+name: barcelona-network-preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/barcelona-network-preflight.yml"
+      - "scripts/build_barcelona_network.py"
+      - "src/network/qc_network.py"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install SUMO and Osmium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install --upgrade pip
+          pip install eclipse-sumo==1.27.1 sumolib==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Build fixed-snapshot Barcelona network
+        run: python scripts/build_barcelona_network.py
+      - name: Run structural network QC
+        run: PYTHONPATH=. python -c "from src.network.qc_network import write_report; print(write_report('artifacts/barcelona_network/barcelona.net.xml','artifacts/barcelona_network/network_qc.json'))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: barcelona-network-preflight
+          path: |
+            artifacts/barcelona_network/barcelona.net.xml
+            artifacts/barcelona_network/network_manifest.json
+            artifacts/barcelona_network/network_qc.json

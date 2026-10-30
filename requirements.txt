@@ -1,0 +1,7 @@
+pandas
+numpy
+PyYAML
+geopandas
+shapely
+pytest
+# SUMO/sumolib/traci are normally provided by the SUMO installation.
