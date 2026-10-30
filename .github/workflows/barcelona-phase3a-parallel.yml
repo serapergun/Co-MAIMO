@@ -26,9 +26,7 @@ jobs:
           name: phase3a-network
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/barcelona_network/barcelona.net.xml
-            artifacts/barcelona_network/network_manifest.json
+          path: artifacts/
 
   b4:
     needs: network
@@ -58,11 +56,7 @@ jobs:
           name: phase3a-b4
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/barcelona_b4_mappo/checkpoints/
-            artifacts/barcelona_b4_mappo/heldout_metrics.json
-            artifacts/barcelona_b4_mappo/experiment_manifest.json
-            artifacts/barcelona_b4_mappo/training_history.json
+          path: artifacts/
 
   b5:
     needs: b4
@@ -92,9 +86,7 @@ jobs:
           name: phase3a-b5
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/barcelona_b5_dcf/heldout_metrics.json
-            artifacts/barcelona_b5_dcf/experiment_manifest.json
+          path: artifacts/
 
   b6:
     needs: b4
@@ -124,11 +116,7 @@ jobs:
           name: phase3a-b6
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/barcelona_b6_shapley/checkpoints/
-            artifacts/barcelona_b6_shapley/heldout_metrics.json
-            artifacts/barcelona_b6_shapley/training_summary.json
-            artifacts/barcelona_b6_shapley/experiment_manifest.json
+          path: artifacts/
 
   lambda:
     needs: b4
@@ -160,8 +148,7 @@ jobs:
           name: phase3a-lambda
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/barcelona_b6_lambda_sensitivity/
+          path: artifacts/
 
   coord:
     needs: b4
@@ -193,8 +180,7 @@ jobs:
           name: phase3a-coord
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/barcelona_coordination_sensitivity/
+          path: artifacts/
 
   validate:
     needs: [b5, b6, lambda, coord]
@@ -222,7 +208,4 @@ jobs:
           name: phase3a-validated
           if-no-files-found: warn
           retention-days: 14
-          path: |
-            artifacts/phase3a_b456/
-            artifacts/barcelona_b6_lambda_sensitivity/publication/
-            artifacts/barcelona_coordination_sensitivity/publication/
+          path: artifacts/
