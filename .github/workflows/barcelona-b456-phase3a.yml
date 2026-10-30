@@ -30,7 +30,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y osmium-tool
-          python -m pip install numpy matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
       - name: Fail-fast MAPPO and coalition regression gate
         run: |
