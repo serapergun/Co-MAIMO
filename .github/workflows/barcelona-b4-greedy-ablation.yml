@@ -17,7 +17,7 @@ jobs:
           python-version: "3.11"
       - name: Install pinned runtime
         run: |
-          python -m pip install numpy pandas matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          python -m pip install numpy pandas scipy matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
           echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
       - name: Regression tests
         run: PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py
@@ -34,7 +34,7 @@ jobs:
           test -s artifacts/barcelona_b4_mappo/checkpoints/b4_mappo_final.npz
       - name: Run B4-G heldout simulation
         run: PYTHONPATH=. python scripts/barcelona_b4_greedy_ablation.py
-      - uses: actions/upload-artifact@v4
+      - name: Paired B4 versus B4-G inference\n        run: PYTHONPATH=. python scripts/compare_b4_greedy_paired.py\n      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: barcelona-b4-greedy-heldout
