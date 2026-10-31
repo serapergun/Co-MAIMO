@@ -34,7 +34,9 @@ jobs:
           test -s artifacts/barcelona_b4_mappo/checkpoints/b4_mappo_final.npz
       - name: Run B4-G heldout simulation
         run: PYTHONPATH=. python scripts/barcelona_b4_greedy_ablation.py
-      - name: Paired B4 versus B4-G inference\n        run: PYTHONPATH=. python scripts/compare_b4_greedy_paired.py\n      - uses: actions/upload-artifact@v4
+      - name: Paired B4 versus B4-G inference
+        run: PYTHONPATH=. python scripts/compare_b4_greedy_paired.py
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: barcelona-b4-greedy-heldout
