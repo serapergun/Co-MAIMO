@@ -1,0 +1,44 @@
+name: barcelona-b4-greedy-ablation
+on:
+  push:
+    branches: [feature/b4-greedy-heldout-ablation-20261031]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  b4-greedy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned runtime
+        run: |
+          python -m pip install numpy pandas scipy matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Regression tests
+        run: PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py
+      - name: Restore validated Barcelona network and B4 checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3a-validated
+          run-id: 41068558828
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Validate frozen inputs
+        run: |
+          test -s artifacts/barcelona_network/barcelona.net.xml
+          test -s artifacts/barcelona_b4_mappo/checkpoints/b4_mappo_final.npz
+      - name: Run B4-G heldout simulation
+        run: PYTHONPATH=. python scripts/barcelona_b4_greedy_ablation.py
+      - name: Paired B4 versus B4-G inference
+        run: PYTHONPATH=. python scripts/compare_b4_greedy_paired.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b4-greedy-heldout
+          path: artifacts/barcelona_b4_greedy/
+          if-no-files-found: warn
