@@ -1,0 +1,17 @@
+name: b4-trainable-shared-actor-tests
+on:
+  push:
+    branches: [feature/b4-trainable-shared-actor-20261031]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actor-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy pytest
+      - run: PYTHONPATH=. python -m pytest -q tests/test_shared_score_mappo.py tests/test_shared_score_policy.py
