@@ -1,0 +1,45 @@
+name: barcelona-b4-shared-actor-sumo-pilot
+on:
+  push:
+    branches: [feature/b4-shared-actor-sumo-pilot-20261031]
+    paths:
+      - scripts/barcelona_b4_shared_actor_pilot.py
+      - src/marl/shared_score_mappo.py
+      - .github/workflows/barcelona-b4-shared-actor-sumo-pilot.yml
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  train-evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned SUMO runtime
+        run: |
+          python -m pip install numpy pandas scipy matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Regression and shared actor tests
+        run: PYTHONPATH=. python -m pytest -q tests/test_core.py tests/test_coalition_game.py tests/test_evaluation.py tests/test_requests.py tests/test_shared_score_mappo.py
+      - name: Restore validated Barcelona network
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3a-validated
+          run-id: 41068558828
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Validate network
+        run: test -s artifacts/barcelona_network/barcelona.net.xml
+      - name: Train and evaluate new B4-S policy
+        run: PYTHONPATH=. python scripts/barcelona_b4_shared_actor_pilot.py
+      - name: Upload all raw SUMO outputs and checkpoint
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b4-shared-actor-pilot
+          path: artifacts/barcelona_b4_shared/
+          if-no-files-found: warn
