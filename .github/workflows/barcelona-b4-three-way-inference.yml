@@ -1,0 +1,49 @@
+name: barcelona-b4-three-way-inference
+on:
+  push:
+    branches: [feature/b4-frozen-argmax-ablation-20261031]
+    paths:
+      - scripts/compare_b4_three_way_paired.py
+      - .github/workflows/barcelona-b4-three-way-inference.yml
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  paired-inference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy scipy
+      - name: Restore B4
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3a-validated
+          run-id: 41068558828
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Restore B4-G
+        uses: actions/download-artifact@v4
+        with:
+          name: barcelona-b4-greedy-heldout
+          run-id: 41215770543
+          github-token: ${{ github.token }}
+          path: artifacts/barcelona_b4_greedy
+      - name: Restore B4-Argmax
+        uses: actions/download-artifact@v4
+        with:
+          name: barcelona-b4-argmax-heldout
+          run-id: 41223404762
+          github-token: ${{ github.token }}
+          path: artifacts/barcelona_b4_argmax
+      - name: Three-way paired inference
+        run: PYTHONPATH=. python scripts/compare_b4_three_way_paired.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b4-three-way-statistics
+          path: artifacts/barcelona_b4_comparison/
+          if-no-files-found: warn
