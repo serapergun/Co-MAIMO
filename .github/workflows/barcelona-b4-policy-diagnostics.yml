@@ -1,0 +1,31 @@
+name: barcelona-b4-policy-diagnostics
+on:
+  push:
+    branches: [feature/b4-policy-architecture-diagnostics-20261031]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase3a-validated
+          run-id: 41068558828
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Diagnose frozen actor
+        run: PYTHONPATH=. python scripts/diagnose_b4_policy_structure.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b4-policy-structure-diagnostics
+          path: artifacts/barcelona_b4_policy_diagnostics/
+          if-no-files-found: warn
