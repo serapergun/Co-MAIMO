@@ -32,7 +32,7 @@ jobs:
           run-id: 41068558828
           github-token: ${{ github.token }}
           path: artifacts
-      - name: Train and evaluate B4-S2 on Barcelona SUMO
+      - name: Train and evaluate B4-S3 on Barcelona SUMO
         run: PYTHONPATH=. python scripts/barcelona_b4_s3_pilot.py
       - name: Archive raw SUMO, training history and frozen checkpoint
         uses: actions/upload-artifact@v4
