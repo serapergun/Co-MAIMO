@@ -18,6 +18,8 @@ def audit(root):
     counts={"decision_count":0,"single_feasible":0,"multi_feasible":0,
             "nearest_selected":0,"non_nearest_selected":0,"missing_decision_logs":0}
     gaps=[]
+    multi_gaps=[]
+    per_seed=[]
     for row in heldout:
         seed=int(row["demand_seed"])
         if (row["completed"],row["unresolved"],row["teleports"])!=(24,0,0):
@@ -29,6 +31,8 @@ def audit(root):
         decisions=json.loads(p.read_text())
         if len(decisions)!=24:
             raise ValueError(f"Unexpected dispatch count for seed {seed}")
+        seed_non_nearest=0
+        seed_multi=0
         for d in decisions:
             obs=np.asarray(d["observation"],dtype=float)
             mask=np.asarray(d["feasible_mask"],dtype=bool)
@@ -38,13 +42,21 @@ def audit(root):
             n=int(mask.sum())
             counts["decision_count"]+=1
             counts["single_feasible" if n==1 else "multi_feasible"]+=1
+            if n>1:seed_multi+=1
             minimum=float(obs[mask].min())
             gap=float(obs[action]-minimum)
             if gap<=1e-10:counts["nearest_selected"]+=1
-            else:counts["non_nearest_selected"]+=1
+            else:
+                counts["non_nearest_selected"]+=1
+                seed_non_nearest+=1
             gaps.append(gap)
+            if n>1:multi_gaps.append(gap)
         report["heldout_seeds"].append(seed)
+        per_seed.append({"seed":seed,"multi_feasible":seed_multi,"non_nearest":seed_non_nearest})
     report["action_diagnostics"]=counts
+    report["per_seed_choice_diagnostics"]=per_seed
+    report["multi_feasible_non_nearest_rate"]=counts["non_nearest_selected"]/counts["multi_feasible"] if counts["multi_feasible"] else None
+    report["multi_feasible_mean_normalized_access_regret"]=float(np.mean(multi_gaps)) if multi_gaps else None
     report["mean_normalized_access_regret"]=float(np.mean(gaps)) if gaps else None
     report["note"]="Regret is normalized access-time difference, not measured SUMO pickup wait or kWh."
     report["feature_availability"]={
