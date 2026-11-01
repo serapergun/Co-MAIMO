@@ -1,0 +1,19 @@
+name: b4-s3-actor-unit-tests
+on:
+  push:
+    branches: [feature/b4-s3-actor-tests-20261101]
+    paths:
+      - src/marl/multifeature_mappo.py
+      - tests/test_multifeature_mappo.py
+      - .github/workflows/b4-s3-actor-unit-tests.yml
+  workflow_dispatch:
+jobs:
+  actor-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy pytest
+      - run: PYTHONPATH=. python -m pytest -q tests/test_multifeature_mappo.py tests/test_shared_score_mappo.py tests/test_stabilized_shared_training.py
