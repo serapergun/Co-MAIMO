@@ -1,7 +1,7 @@
 """B4-S3 permutation-equivariant multi-feature masked PPO actor.
 
 The actor is shared across taxis: z_i = w @ x_i + b, with x_i=(normalized
-access time, normalized access-time gap from best feasible taxi). The second
+access time, squared normalized access-time gap from best feasible taxi). The second
 feature is candidate-relative and does not require new SUMO sensors. An
 independent centralized linear critic uses the existing three state features.
 """
@@ -22,7 +22,7 @@ class MultiFeatureMAPPO(SharedScoreMAPPO):
         if not np.all(np.isfinite(obs[feasible])):
             raise ValueError("nonfinite candidate features")
         best=float(obs[feasible].min())
-        return np.stack((obs,obs-best),axis=-1)
+        return np.stack((obs,(obs-best)**2),axis=-1)
 
     def masked_action_probs(self,observation,mask):
         feasible=np.asarray(mask,dtype=bool)
