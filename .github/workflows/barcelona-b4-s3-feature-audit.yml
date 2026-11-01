@@ -4,6 +4,8 @@ on:
     branches: [feature/b4-s4-feature-audit-20261101]
     paths:
       - scripts/audit_b4_s3_features.py
+      - src/marl/telemetry_probes.py
+      - tests/test_telemetry_probes.py
       - .github/workflows/barcelona-b4-s3-feature-audit.yml
   workflow_dispatch:
 permissions:
@@ -20,7 +22,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install numpy pytest
       - name: Audit regression tests
-        run: PYTHONPATH=. python -m pytest -q tests/test_b4_s3_feature_audit.py
+        run: PYTHONPATH=. python -m pytest -q tests/test_b4_s3_feature_audit.py tests/test_telemetry_probes.py
       - name: Download real B4-S3 SUMO artifacts
         uses: actions/download-artifact@v4
         with:
