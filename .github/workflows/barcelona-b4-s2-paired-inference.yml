@@ -1,4 +1,4 @@
-name: barcelona-b4-s2-paired-inference
+name: barcelona-b4-s2-paired-inference-v2
 on:
   push:
     branches: [feature/b4-s2-paired-inference-20261101]
