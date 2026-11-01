@@ -26,6 +26,7 @@ def main():
     assert not (set(plan.training)&set(plan.heldout)), "training/heldout seed leakage"
     policy=SharedScoreMAPPO(N_TAXIS,state_dim=3,seed=POLICY_SEED)
     policy.actor_w[0]=-2.0  # Explicit nearest-access prior; trained, not frozen\n    history=[]
+    history=[]
     for i,seed in enumerate(plan.training):
         cfg=write_scenario(ROOT/"scenarios"/f"train_{seed}",pairs,seed)
         out=ROOT/"train"/f"seed_{seed}"
