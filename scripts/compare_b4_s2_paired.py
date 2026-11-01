@@ -1,6 +1,6 @@
 """Reproducible paired heldout inference for B4-S2 vs B3/B4/B4-G.
 
-Holm adjustment controls family-wise error across all twelve comparisons.
+Holm adjustment controls family-wise error across eight available comparisons.
 No post-hoc claim of significance from unadjusted p-values.
 """
 import json
@@ -10,7 +10,7 @@ from scipy.stats import t as student_t
 SEEDS=(9101,9102,9103,9104,9105)
 METRICS=("mean_pickup_wait_s","empty_km","net_energy_kWh","kWh_per_vehicle_km")
 PATHS={
-"B3":"artifacts/barcelona_b3/heldout_metrics.json",
+
 "B4":"artifacts/barcelona_b4_mappo/heldout_metrics.json",
 "B4-G":"artifacts/barcelona_b4_greedy/heldout_metrics.json",
 "B4-S2":"artifacts/barcelona_b4_stabilized/heldout_metrics.json",
@@ -50,12 +50,12 @@ def holm(rows):
     running=0.
     for rank,i in enumerate(indices):
         running=max(running,(len(indices)-rank)*rows[i]["p_unadjusted"])
-        rows[i]["p_holm_12_tests"]=min(1.,running)
+        rows[i]["p_holm_8_tests"]=min(1.,running)
     return rows
 def main():
     data={name:load(name) for name in PATHS}
     results=[]
-    for name in ("B3","B4","B4-G"):
+    for name in ("B4","B4-G"):
         results.extend(compare(name,"B4-S2",data[name],data["B4-S2"]))
     holm(results)
     out=Path("artifacts/barcelona_b4_s2_inference")
