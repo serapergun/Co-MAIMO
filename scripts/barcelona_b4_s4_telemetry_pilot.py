@@ -10,7 +10,7 @@ from scripts.barcelona_b4_mappo import NET,N_TAXIS,POLICY_SEED,write_scenario,va
 from src.data.barcelona_crn import safe_od_pool
 from src.marl.multifeature_mappo import MultiFeatureMAPPO
 from src.marl.traci_adapter import MAPPOTraciDispatcher
-from src.marl.telemetry_probes import candidate_telemetry
+from src.marl.telemetry_probes import candidate_telemetry,edge_traffic_density
 from src.simulation.traci_runner import run
 
 ROOT=Path("artifacts/barcelona_b4_s4_telemetry")
@@ -26,6 +26,7 @@ class TelemetryDispatcher:
             idle=sorted(traci.vehicle.getTaxiFleet(0))
             for vehicle_id in idle:
                 sample=candidate_telemetry(traci,vehicle_id)
+                sample['edge_density']=edge_traffic_density(traci,vehicle_id)
                 self.probes.append({"time_s":float(now),"vehicle_id":vehicle_id,
                     **{name:{"available":probe.available,"value":probe.value,
                               "reason":probe.reason} for name,probe in sample.items()}})
@@ -46,7 +47,7 @@ def main():
     run(cfg,out,dispatcher,max_time_s=18000)
     metrics=validate_episode(out)
     counts={}
-    for name in ("lane_density","battery_soc"):
+    for name in ("lane_density","edge_density","battery_soc"):
         samples=[r[name] for r in dispatcher.probes]
         available=[r["value"] for r in samples if r["available"]]
         counts[name]={"total":len(samples),"available":len(available),
