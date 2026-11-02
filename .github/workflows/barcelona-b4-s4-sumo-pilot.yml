@@ -1,0 +1,42 @@
+name: barcelona-b4-s4-sumo-pilot
+on:
+  push:
+    branches: [feature/b4-s4-feature-audit-20261101]
+    paths:
+      - scripts/barcelona_b4_s4_pilot.py
+      - .github/workflows/barcelona-b4-s4-sumo-pilot.yml
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  train-evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned SUMO runtime
+        run: |
+          python -m pip install numpy pandas scipy matplotlib pytest eclipse-sumo==1.27.1 sumolib==1.27.1 traci==1.27.1
+          echo "$(python -c 'import sumo; print(sumo.SUMO_HOME)')/bin" >> "$GITHUB_PATH"
+      - name: Validate B4-S4 model and episode integration
+        run: PYTHONPATH=. python -m pytest -q tests/test_b4_s4_features.py tests/test_b4_s4_actor.py tests/test_b4_s4_training.py tests/test_b4_s4_episode.py tests/test_telemetry_probes.py
+      - name: Restore validated Barcelona network
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3a-validated
+          run-id: 41068558828
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Train and evaluate B4-S4 on real Barcelona SUMO
+        run: PYTHONPATH=. python scripts/barcelona_b4_s4_pilot.py
+      - name: Archive actual SUMO outputs and frozen checkpoint
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: barcelona-b4-s4-sumo-pilot
+          path: artifacts/barcelona_b4_s4/
+          if-no-files-found: warn
