@@ -46,3 +46,20 @@ def battery_soc(traci, vehicle_id):
 def candidate_telemetry(traci, vehicle_id):
     return {"lane_density":lane_traffic_density(traci,vehicle_id),
             "battery_soc":battery_soc(traci,vehicle_id)}
+
+def edge_traffic_density(traci, vehicle_id):
+    """Observed edge vehicles per km; unavailable on internal junction edges."""
+    try:
+        edge_id=str(traci.vehicle.getRoadID(vehicle_id))
+        if not edge_id or edge_id.startswith(":"):
+            return Probe(None,False,"no_regular_edge")
+        count=_safe_float(traci.edge.getLastStepVehicleNumber(edge_id))
+        lane_count=traci.edge.getLaneNumber(edge_id)
+        if count is None or count<0 or not isinstance(lane_count,int) or lane_count<1:
+            return Probe(None,False,"invalid_edge_telemetry")
+        lengths=[_safe_float(traci.lane.getLength(f"{edge_id}_{i}")) for i in range(lane_count)]
+        if any(length is None or length<=0 for length in lengths):
+            return Probe(None,False,"invalid_edge_lengths")
+        return Probe(1000.0*count/(sum(lengths)/len(lengths)),True,"observed_edge_vehicles_per_km")
+    except (AttributeError,KeyError,RuntimeError,ValueError,TypeError):
+        return Probe(None,False,"edge_telemetry_unavailable")
